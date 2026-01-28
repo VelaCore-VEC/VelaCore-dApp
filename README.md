@@ -16,3 +16,7 @@ VelaCore is building the future of retail payments in Asia. This dApp allows mer
 
 ### 🔒 Security Note
 Private keys and sensitive Firebase configurations are managed via environment variables and are not exposed in this repository.
+
+### dApp is Live now
+
+- **Link 🔗:** https://dapp.velacore.site
