@@ -1,0 +1,143 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Content Security Policy Fix for 'unsafe-eval' -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https: wss:; style-src 'self' https: 'unsafe-inline'; font-src 'self' https: data:; img-src 'self' https: data:;">
+
+    <!-- Primary Meta Tags -->
+    <title>VelaCore | Best DeFi Staking, Swap & DAO Dashboard on BNB Chain</title>
+    <meta name="title" content="VelaCore | Premium DeFi Protocol on BNB Smart Chain">
+    <meta name="description" content="VelaCore is the ultimate dApp for VEC staking, instant token swaps, and DAO governance on BNB Smart Chain. Earn high APY, manage your crypto portfolio, and explore DeFi with AI-powered insights.">
+    <meta name="keywords" content="VelaCore, dApp, DeFi, staking, crypto staking, DAO, token swap, BNB Smart Chain, BSC, VEC token, crypto dashboard, collectibles, yield farming, blockchain portfolio">
+    <meta name="author" content="VelaCore Protocol">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://dapp.velacore.site" />
+    <link rel="icon" type="image/svg+xml" href="https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dapp.velacore.site/">
+    <meta property="og:title" content="VelaCore | Premium DeFi Protocol on BNB Smart Chain">
+    <meta property="og:description" content="Stake VEC tokens, swap assets instantly, and participate in DAO governance. The most professional DeFi experience on BSC.">
+    <meta property="og:image" content="https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://dapp.velacore.site/">
+    <meta property="twitter:title" content="VelaCore | Premium DeFi Protocol on BNB Smart Chain">
+    <meta property="twitter:description" content="Stake VEC tokens, swap assets instantly, and participate in DAO governance. The most professional DeFi experience on BSC.">
+    <meta property="twitter:image" content="https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg">
+
+    <!-- Structured Data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "VelaCore dApp",
+      "operatingSystem": "Web",
+      "applicationCategory": "FinanceApplication",
+      "description": "Professional DeFi staking and portfolio management dashboard built for the BNB Smart Chain Testnet.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
+    <!-- Structured Data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "VelaCore",
+      "url": "https://dapp.velacore.site",
+      "logo": "https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg",
+      "sameAs": [
+        "https://twitter.com/VelaCore_VEC",
+        "https://discord.gg/C6KNzb6jk",
+        "https://github.com/VelaCore"
+      ]
+    }
+    </script>
+
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              bgDark: '#020203',
+              surfaceDark: '#08090c',
+              surfaceLight: '#0d1017',
+              primary: '#38bdf8',
+              secondary: '#fbbf24',
+              textMain: '#ffffff',
+              textMuted: '#64748b',
+              success: '#10b981',
+              error: '#ef4444',
+              border: 'rgba(255, 255, 255, 0.05)'
+            },
+            fontFamily: {
+              outfit: ['Outfit', 'sans-serif'],
+            },
+            animation: {
+              'spin-slow': 'spin 8s linear infinite',
+            }
+          }
+        }
+      }
+    </script>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "ethers": "https://esm.sh/ethers@^6.16.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0"
+  }
+}
+</script>
+<style>
+    body {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: #020203;
+    }
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #020203;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #1e293b;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #334155;
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+</style>
+</head>
+<body class="bg-bgDark text-white font-outfit overflow-x-hidden antialiased">
+    <div id="root"></div>
+    <!-- Explicit import just in case the automatic module loading is blocked by strict CSP -->
+    <script type="module" src="./index.tsx"></script>
+</body>
+</html>
