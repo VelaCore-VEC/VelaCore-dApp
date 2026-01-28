@@ -4,19 +4,6 @@ import { GoogleGenAI } from "@google/genai";
 import { Section, UserBalances } from './types';
 import { CONFIG, BSC_TESTNET_PARAMS, ERC20_ABI, STAKING_ABI } from './constants';
 
-/**
- * =========================================================================
- * VELA-CORE PROTOCOL v1.5.5 - UNIVERSAL MOBILE CONNECT EDITION
- * =========================================================================
- * 
- * ENHANCEMENTS:
- * - Working mobile connection for ALL wallets
- * - Universal wallet connection system
- * - Proper popup content and buttons
- * - Connection status tracking
- * =========================================================================
- */
-
 const LOGO_URL = "https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg";
 
 // --- Internal Interfaces ---
@@ -54,15 +41,12 @@ interface DetailedStakeInfo {
   canWithdraw: boolean;
 }
 
-// PROPER mobile wallet configurations with working connection methods
 const MOBILE_WALLETS = [
   {
     id: 'metamask',
     name: 'MetaMask',
     icon: 'fab fa-ethereum',
-    // MetaMask uses deeplink with dapp URL
     deeplink: (url: string) => `https://metamask.app.link/dapp/${encodeURIComponent(url)}`,
-    // For direct app opening
     appScheme: 'metamask://dapp?url=',
     universalLink: (url: string) => `https://metamask.app.link/dapp/${encodeURIComponent(url)}`,
     packageName: 'io.metamask',
@@ -73,7 +57,6 @@ const MOBILE_WALLETS = [
     id: 'trust',
     name: 'Trust Wallet',
     icon: 'fas fa-shield-alt',
-    // Trust Wallet uses open_url
     deeplink: (url: string) => `https://link.trustwallet.com/open_url?url=${encodeURIComponent(url)}`,
     appScheme: 'trust://browser?url=',
     universalLink: (url: string) => `https://link.trustwallet.com/open_url?url=${encodeURIComponent(url)}`,
@@ -85,7 +68,6 @@ const MOBILE_WALLETS = [
     id: 'coinbase',
     name: 'Coinbase Wallet',
     icon: 'fas fa-wallet',
-    // Coinbase uses cb_url parameter
     deeplink: (url: string) => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(url)}`,
     appScheme: 'cbwallet://dapp?url=',
     universalLink: (url: string) => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(url)}`,
@@ -97,7 +79,6 @@ const MOBILE_WALLETS = [
     id: 'phantom',
     name: 'Phantom',
     icon: 'fas fa-ghost',
-    // Phantom uses browse/ endpoint
     deeplink: (url: string) => `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(window.location.origin)}`,
     appScheme: 'phantom://browse/',
     universalLink: (url: string) => `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(window.location.origin)}`,
@@ -109,7 +90,6 @@ const MOBILE_WALLETS = [
     id: 'okx',
     name: 'OKX Wallet',
     icon: 'fas fa-bolt',
-    // OKX uses their own deeplink format
     deeplink: (url: string) => `https://www.okx.com/download?deeplink=${encodeURIComponent(`okx://wallet/dapp?url=${url}`)}`,
     appScheme: 'okx://wallet/dapp?url=',
     universalLink: (url: string) => `https://www.okx.com/download?deeplink=${encodeURIComponent(`okx://wallet/dapp?url=${url}`)}`,
@@ -133,7 +113,6 @@ const MOBILE_WALLETS = [
     id: 'bitget',
     name: 'Bitget Wallet',
     icon: 'fas fa-gem',
-    // Bitget Wallet deeplink
     deeplink: (url: string) => `https://web3.bitget.com/en/wallet-download?type=0&deeplink=${encodeURIComponent(`bitkeep://dapp?url=${url}`)}`,
     appScheme: 'bitkeep://dapp?url=',
     universalLink: (url: string) => `https://web3.bitget.com/en/wallet-download?type=0&deeplink=${encodeURIComponent(`bitkeep://dapp?url=${url}`)}`,
@@ -182,7 +161,6 @@ const StatCard: React.FC<{ label: string; value: string; unit: string; icon: str
   </div>
 );
 
-// Faucet Card Component
 const FaucetCard: React.FC<{ 
   isConnected: boolean; 
   onRequestTokens: () => void; 
@@ -522,7 +500,6 @@ const StakingView: React.FC<{
 // MASTER APP
 // -------------------------------------------------------------------------
 
-// Declare global window with ethereum
 declare global {
   interface Window {
     ethereum?: any;
@@ -535,7 +512,6 @@ declare global {
   }
 }
 
-// Faucet Contract ABI - FIXED: Added claimTokens() function
 const FAUCET_ABI = [
   "function claimTokens() external",
   "function requestTokens() external",
@@ -543,10 +519,8 @@ const FAUCET_ABI = [
   "function cooldownPeriod() external view returns(uint256)"
 ];
 
-// Faucet Contract Address
 const FAUCET_CONTRACT_ADDRESS = "0x9bfe0Be0C065487eBb0F66E24CDf8F9cf1D750Cf";
 
-// Utility functions for mobile wallet connection
 const detectMobileOS = (): 'ios' | 'android' | 'other' => {
   const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
   if (/android/i.test(userAgent)) return 'android';
@@ -554,7 +528,6 @@ const detectMobileOS = (): 'ios' | 'android' | 'other' => {
   return 'other';
 };
 
-// Universal mobile wallet connection function
 const connectToMobileWallet = (walletId: string): boolean => {
   const wallet = MOBILE_WALLETS.find(w => w.id === walletId);
   if (!wallet) return false;
@@ -565,16 +538,13 @@ const connectToMobileWallet = (walletId: string): boolean => {
   let connectionUrl = '';
   
   if (os === 'ios' && wallet.universalLink) {
-    // iOS Universal Links
     connectionUrl = wallet.universalLink(currentUrl);
   } else if (wallet.deeplink) {
-    // Android/other deep links
     connectionUrl = wallet.deeplink(currentUrl);
   }
   
   if (!connectionUrl) return false;
   
-  // Create a hidden iframe for iOS Universal Links
   if (os === 'ios') {
     const iframe = document.createElement('iframe');
     iframe.src = connectionUrl;
@@ -681,9 +651,7 @@ export default function App() {
     }
   }, [isConnectingMobile, mobileConnectionInfo]);
 
-  // Fix for WebSocket connection errors
   useEffect(() => {
-    // Clear any existing WebSocket connections
     const cleanupWebSocket = () => {
       if (window.ethereum && window.ethereum._state && window.ethereum._state.webSocket) {
         try {
@@ -741,7 +709,6 @@ export default function App() {
       console.error("Sync Failure", error);
       addLog('SYSTEM', 'Protocol synchronization failure', 'ERROR');
       
-      // Retry logic with exponential backoff
       if (retryCount < 3 && currentAccount && rawProvider) {
         const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
         setRetryCount(prev => prev + 1);
@@ -847,7 +814,6 @@ export default function App() {
         return;
       }
 
-      // For desktop - check if MetaMask is installed
       if (!window.ethereum) {
         showToast("MetaMask not installed. Please install MetaMask extension.", "error");
         window.open('https://metamask.io/download/', '_blank');
@@ -855,7 +821,6 @@ export default function App() {
         return;
       }
 
-      // Fix for WebSocket errors
       if (window.ethereum._state && window.ethereum._state.webSocket) {
         try {
           window.ethereum._state.webSocket.close();
@@ -948,7 +913,6 @@ export default function App() {
         
         showToast(`Opening ${wallet.name}... Approve connection`, "info");
         
-        // Use the universal connection function
         const success = connectToMobileWallet(walletId);
         
         if (!success) {
@@ -957,13 +921,11 @@ export default function App() {
         
         setIsWalletModalOpen(false);
         
-        // Show connection instructions
         setTimeout(() => {
           showToast("Return here after approving in wallet app", "info");
         }, 2000);
         
       } else {
-        // On desktop, show install instructions
         showToast(`Please install ${wallet.name} on your mobile device`, "info");
         window.open('https://metamask.io/download/', '_blank');
       }
@@ -1019,7 +981,6 @@ export default function App() {
     }
   };
 
-  // Faucet function - FIXED VERSION
   const handleFaucetRequest = async () => {
     if (!provider || !account) {
       showToast("Please connect wallet first", "error");
@@ -1033,10 +994,8 @@ export default function App() {
       const browserProvider = new ethers.BrowserProvider(provider);
       const signer = await browserProvider.getSigner();
       
-      // FIX: Create proper contract instance with ABI
       const faucetContract = new ethers.Contract(FAUCET_CONTRACT_ADDRESS, FAUCET_ABI, signer);
       
-      // FIX: Check if we're on the correct network first
       const network = await browserProvider.getNetwork();
       if (Number(network.chainId) !== CONFIG.CHAIN_ID) {
         setLoadingLabel('Switching to BSC Testnet');
@@ -1055,13 +1014,10 @@ export default function App() {
             throw err;
           }
         }
-        // Wait a bit for network switch
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
-      // FIX: Check cooldown period (if contract has these functions)
       try {
-        // Check if contract has these view functions
         const lastRequestTime = await faucetContract.lastRequestTime(account);
         const cooldownPeriod = await faucetContract.cooldownPeriod();
         const currentTime = Math.floor(Date.now() / 1000);
@@ -1073,22 +1029,18 @@ export default function App() {
           throw new Error(`Wait for cooldown. Try again in ${hours}h ${minutes}m`);
         }
       } catch (error: any) {
-        // If cooldown check fails, it's okay - contract might not have these functions
         console.log("Cooldown check result:", error.message);
       }
       
-      // FIX: Call the contract function properly - Try claimTokens() first, then requestTokens()
       setLoadingLabel('Requesting tokens from faucet');
       
       let tx;
       
       try {
-        // Try claimTokens() first - this is the most common function name
         tx = await faucetContract.claimTokens({
           gasLimit: 200000 // FIX: Provide sufficient gas limit
         });
       } catch (error: any) {
-        // If claimTokens fails, try requestTokens()
         if (error.message.includes("claimTokens") || error.message.includes("function")) {
           tx = await faucetContract.requestTokens({
             gasLimit: 200000
@@ -1100,7 +1052,6 @@ export default function App() {
       
       addLog('SWAP', 'Faucet request initiated', 'PENDING', tx.hash);
       
-      // FIX: Wait for transaction confirmation
       const receipt = await tx.wait();
       
       if (!receipt || receipt.status === 0) {
@@ -1110,13 +1061,11 @@ export default function App() {
       showToast("Success! 10,000 VEC tokens have been sent to your wallet.", "success");
       addLog('SWAP', '10,000 VEC tokens claimed from faucet', 'SUCCESS', tx.hash);
       
-      // FIX: Refresh balances after successful transaction
       await refreshData(account, provider);
       
     } catch (error: any) {
       console.error("Faucet request error:", error);
       
-      // FIX: Better error handling with specific messages
       let errorMessage = "Transaction failed";
       
       if (error.message.includes("Wait for cooldown")) {
@@ -1140,7 +1089,6 @@ export default function App() {
       } else if (error.message.includes("network changed")) {
         errorMessage = "Network changed. Please ensure you're on BSC Testnet.";
       } else if (error.message) {
-        // Try to extract the revert reason if available
         const revertMatch = error.message.match(/revert\s*(.*)/);
         if (revertMatch && revertMatch[1]) {
           errorMessage = `Contract reverted: ${revertMatch[1]}`;
@@ -1249,7 +1197,6 @@ export default function App() {
     } finally { setLoading(false); }
   };
 
-  // Function to detect installed wallets
   const detectInstalledWallets = () => {
     const installedWallets = [];
     
@@ -1257,7 +1204,6 @@ export default function App() {
       installedWallets.push('metamask');
     }
     
-    // Check for other wallets
     if (window.trustwallet) {
       installedWallets.push('trust');
     }
@@ -1343,7 +1289,6 @@ export default function App() {
           )}
         </section>
 
-        {/* Mobile Connection Status Overlay */}
         {isConnectingMobile && mobileConnectionInfo && (
           <div className="fixed inset-0 z-[3000] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center">
             <div className="relative w-32 h-32 mb-8 flex items-center justify-center">
@@ -1377,7 +1322,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Brand Flux Effects */}
         <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-primary/[0.02] rounded-full blur-[180px] -z-10 pointer-events-none"></div>
         <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-secondary/[0.015] rounded-full blur-[120px] -z-10 pointer-events-none"></div>
       </main>
@@ -1455,7 +1399,6 @@ const IdentityModal: React.FC<{
 }> = ({ isOpen, onClose, onConnect, loading, providers, isMobile, mobileOS, installedWallets = [] }) => {
   if (!isOpen) return null;
   
-  // Filter wallets based on device type
   const availableWallets = MOBILE_WALLETS.filter(wallet => {
     if (isMobile) {
       return true;
@@ -1474,7 +1417,6 @@ const IdentityModal: React.FC<{
         </p>
         
         <div className="space-y-3 mb-6">
-          {/* Primary MetaMask option */}
           <button 
             onClick={() => onConnect('metamask')} 
             disabled={loading}
@@ -1495,7 +1437,6 @@ const IdentityModal: React.FC<{
           </button>
         </div>
 
-        {/* Other Wallet Options - Only show on mobile */}
         {isMobile && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
@@ -1531,7 +1472,6 @@ const IdentityModal: React.FC<{
           </div>
         )}
 
-        {/* Mobile Connection Instructions */}
         {isMobile && (
           <div className="mt-6 p-4 bg-primary/5 border border-primary/10 rounded-xl">
             <p className="text-[7px] text-primary font-bold uppercase tracking-widest text-center mb-2">
@@ -1548,7 +1488,6 @@ const IdentityModal: React.FC<{
           </div>
         )}
 
-        {/* EIP-6963 Discovered Providers */}
         {!isMobile && providers.length > 0 && (
           <div className="mt-6 pt-6 border-t border-white/5">
             <div className="flex items-center gap-2 mb-4">
