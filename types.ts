@@ -9,7 +9,7 @@ export interface Asset {
 }
 
 export interface UserBalances {
-  bnb: string;
+  native: string; // BNB or FLOW
   vec: string;
   staked: string;
   rewards: string;
