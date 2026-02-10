@@ -20,7 +20,9 @@ export enum Section {
   SWAP = 'swap',
   STAKE = 'stake',
   NFT = 'nft',
-  GOVERNANCE = 'governance'
+  GOVERNANCE = 'governance',
+  BRIDGE = 'bridge',
+  AI_ANALYTICS = 'ai-analytics'
 }
 
 export interface NetworkConfig {
@@ -33,4 +35,12 @@ export interface NetworkConfig {
   };
   rpcUrls: string[];
   blockExplorerUrls: string[];
+}
+
+// types.ts
+export interface UserBalances {
+  native: string;
+  vec: string;
+  staked: string;
+  rewards: string;
 }

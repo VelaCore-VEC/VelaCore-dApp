@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 import { Section, UserBalances } from './types';
 import { CONFIG, BSC_TESTNET_PARAMS, ERC20_ABI, STAKING_ABI } from './constants';
@@ -8,20 +8,15 @@ import { StakingCard } from './components/StakingCard';
 import { WalletModal } from './components/WalletModal';
 import { Toast } from './components/Toast';
 import { Sidebar } from './components/Sidebar';
+import { AIAnalytics } from './components/AIAnalytics';
+import { SwapPage } from './components/SwapPage';
+import { NFTPage } from './components/NFTPage';
+import { GovernancePage } from './components/GovernancePage';
+import { BridgePage } from './components/BridgePage';
 
 /**
  * =========================================================================
  * VELA-CORE PROTOCOL - INSTITUTIONAL GRADE DeFi DASHBOARD
- * =========================================================================
- * 
- * Design: Deep Space Theme with Glassmorphism
- * Features:
- * - Multi-chain support (BNB, Flow)
- * - Professional wallet integration
- * - Animated TVL counter
- * - Advanced staking interface
- * - Production-ready code
- * 
  * =========================================================================
  */
 
@@ -81,7 +76,10 @@ declare global {
   }
 }
 
-// Main App Component
+// Gemini AI configuration
+const GEMINI_API_KEY = "AIzaSyCSg9T5V-PqB1JXez95ee-SJAMzS3NXsH0";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>(Section.DASHBOARD);
   const [account, setAccount] = useState<string | null>(null);
@@ -110,13 +108,13 @@ export default function App() {
     visible: false
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Protocol Stats (Mock data - replace with real data)
-  const [protocolStats, setProtocolStats] = useState({
-    tvl: '$12,500,000',
-    totalStakers: '1,234',
-    apy: '24.5'
-  });
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{text: string, isUser: boolean}>>([
+    { text: "Hello! I'm VelaCore AI Assistant. Ask me about staking, APY, or protocol features.", isUser: false }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type, visible: true });
@@ -124,6 +122,72 @@ export default function App() {
 
   const getChainConfig = (chainId: string) => {
     return CHAIN_CONFIGS[chainId as keyof typeof CHAIN_CONFIGS] || CHAIN_CONFIGS.bsc;
+  };
+
+  // Gemini AI function
+  const sendToGeminiAI = async (message: string) => {
+    if (!message.trim()) return;
+    
+    setAiLoading(true);
+    
+    // Add user message
+    const userMessage = { text: message, isUser: true };
+    setChatMessages(prev => [...prev, userMessage]);
+    setAiInput('');
+    
+    try {
+      const response = await fetch(GEMINI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `You are VelaCore AI Assistant, a helpful assistant for the VelaCore DeFi protocol. 
+              Current user context: Connected to ${currentChain.name}, 
+              VEC Balance: ${balances.vec}, Staked: ${balances.staked}, Pending Rewards: ${balances.rewards}.
+              User question: ${message}
+              
+              Provide helpful, concise answers about:
+              - Staking VEC tokens and APY calculations
+              - Token swapping on our platform
+              - NFT collection information
+              - Governance and voting procedures
+              - Cross-chain bridging
+              - General DeFi and blockchain concepts
+              
+              Keep responses under 3-4 sentences.`
+            }]
+          }]
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Extract the AI response
+      let aiResponse = "I apologize, but I couldn't generate a response at the moment.";
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+        aiResponse = data.candidates[0].content.parts[0].text;
+      }
+      
+      // Add AI response
+      setChatMessages(prev => [...prev, { text: aiResponse, isUser: false }]);
+      
+    } catch (error) {
+      console.error("Gemini AI error:", error);
+      setChatMessages(prev => [...prev, { 
+        text: "I'm experiencing connection issues. Please try again later or ask about general VelaCore features.", 
+        isUser: false 
+      }]);
+      showToast("AI service temporarily unavailable", "error");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   // Refresh Data
@@ -191,7 +255,7 @@ export default function App() {
     }
   }, [currentChain]);
 
-  // Wallet Connection - Fixed to properly detect specific wallets
+  // Wallet Connection
   const connectWallet = async (walletType: string) => {
     setLoading(true);
     try {
@@ -199,32 +263,26 @@ export default function App() {
 
       switch (walletType) {
         case 'metamask':
-          // First check if MetaMask is available directly
           if (window.ethereum?.isMetaMask && !Array.isArray(window.ethereum)) {
             ethereumProvider = window.ethereum;
           } else if (Array.isArray(window.ethereum)) {
-            // Find MetaMask in the array
             ethereumProvider = window.ethereum.find((provider: any) => 
               provider.isMetaMask || provider._metamask || provider.providers?.some((p: any) => p.isMetaMask)
             );
-            // If not found, try to find by checking for MetaMask-specific properties
             if (!ethereumProvider) {
               ethereumProvider = window.ethereum.find((provider: any) => 
                 provider.request && !provider.isTrust && !provider.isCoinbaseWallet
               );
             }
           } else if (window.ethereum?.providers && Array.isArray(window.ethereum.providers)) {
-            // Find MetaMask in providers array
             ethereumProvider = window.ethereum.providers.find((provider: any) => 
               provider.isMetaMask || provider._metamask
             );
           } else if (window.ethereum && !window.ethereum.isTrust && !window.ethereum.isCoinbaseWallet) {
-            // Fallback: use ethereum if it's not Trust or Coinbase
             ethereumProvider = window.ethereum;
           }
           break;
         case 'trustwallet':
-          // Check for Trust Wallet specifically
           if (window.trustwallet) {
             ethereumProvider = window.trustwallet;
           } else if (window.ethereum?.isTrust) {
@@ -236,7 +294,6 @@ export default function App() {
           }
           break;
         case 'coinbase':
-          // Check for Coinbase Wallet specifically
           if (window.coinbaseWalletExtension) {
             ethereumProvider = window.coinbaseWalletExtension;
           } else if (window.ethereum?.isCoinbaseWallet) {
@@ -248,7 +305,6 @@ export default function App() {
           }
           break;
         case 'binance':
-          // Binance has its own provider
           ethereumProvider = window.BinanceChain;
           break;
         default:
@@ -322,7 +378,6 @@ export default function App() {
     showToast("Wallet disconnected", "info");
   };
 
-  // Switch Network
   const switchNetwork = async (chainId: string) => {
     if (!provider) {
       showToast("Please connect wallet first", "error");
@@ -362,7 +417,6 @@ export default function App() {
     }
   };
 
-  // Check existing connection
   useEffect(() => {
     const checkConnection = async () => {
       const ethereumProvider = Array.isArray(window.ethereum) 
@@ -385,6 +439,13 @@ export default function App() {
     checkConnection();
   }, [refreshData]);
 
+  // Scroll to bottom when new messages
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
   // Staking Functions
   const handleStake = async (amount: string, lockPeriod: number) => {
     if (!provider || !account) {
@@ -392,7 +453,6 @@ export default function App() {
       return;
     }
 
-    // Check if user already has an active stake
     if (stakeInfo.isActive) {
       showToast("You already have an active stake. Please unstake first.", "error");
       return;
@@ -414,14 +474,12 @@ export default function App() {
       const currentConfig = getChainConfig(currentChain.id);
       const signer = await browserProvider.getSigner();
 
-      // Approve first
       const vecContract = new ethers.Contract(currentConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, signer);
       const amountWei = ethers.parseUnits(amount, 18);
       
       const approveTx = await vecContract.approve(currentConfig.STAKING_CONTRACT_ADDRESS, amountWei);
       await approveTx.wait();
 
-      // Then stake
       const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
       const stakeTx = await stakingContract.stake(amountWei, lockPeriod);
       await stakeTx.wait();
@@ -447,7 +505,6 @@ export default function App() {
       return;
     }
 
-    // Check if lock period has ended
     if (!stakeInfo.canWithdraw) {
       const now = Math.floor(Date.now() / 1000);
       const remaining = stakeInfo.unlockTime - now;
@@ -504,7 +561,6 @@ export default function App() {
     }
   };
 
-  // Faucet Function
   const handleFaucetClaim = async () => {
     if (!provider || !account) {
       showToast("Please connect wallet first", "error");
@@ -536,14 +592,28 @@ export default function App() {
     }
   };
 
+  // Handle AI message send
+  const handleAiSend = () => {
+    if (aiInput.trim() && !aiLoading) {
+      sendToGeminiAI(aiInput);
+    }
+  };
+
+  // Handle Enter key press for AI
+  const handleAiKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAiSend();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0B0E11] text-white font-['Inter',sans-serif] antialiased">
-      {/* Deep Space Background with Gradients */}
+    <div className="min-h-screen bg-[#0B0E11] text-white font-sans antialiased">
+      {/* Background */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[#0B0E11]"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(6,182,212,0.15),transparent_50%)]"></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(34,197,94,0.1),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0B0E11]"></div>
       </div>
 
       {/* Sidebar */}
@@ -552,314 +622,231 @@ export default function App() {
         onSectionChange={setActiveSection}
         isMobileOpen={isMobileMenuOpen}
         onMobileClose={() => setIsMobileMenuOpen(false)}
+        onMobileOpen={() => setIsMobileMenuOpen(true)}
       />
 
-      {/* Main Layout */}
+      {/* Main Content */}
       <div className="lg:ml-64">
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="fixed top-4 left-4 z-50 lg:hidden w-10 h-10 glass-card flex items-center justify-center rounded-lg hover:bg-white/10 transition-all"
-        >
-          <i className={`fas ${isMobileMenuOpen ? 'fa-times' : 'fa-bars'} text-white`}></i>
-        </button>
-
-        {/* Global Header */}
-        <GlobalHeader
-          account={account}
-          currentChain={currentChain}
-          onConnect={() => setIsWalletModalOpen(true)}
-          onDisconnect={disconnectWallet}
-          onSwitchChain={switchNetwork}
-          supportedChains={SUPPORTED_CHAINS}
-        />
+        {/* Global Header with Mobile Menu Button */}
+        <div className="sticky top-0 z-30">
+          <div className="flex items-center justify-between bg-[#0B0E11]/80 backdrop-blur-md border-b border-white/10 px-4 py-3 lg:hidden">
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <i className="fas fa-bars text-xl"></i>
+            </button>
+            <div className="text-lg font-bold text-cyan-400">VelaCore</div>
+            <div className="w-10"></div> {/* Spacer */}
+          </div>
+          
+          <GlobalHeader
+            account={account}
+            currentChain={currentChain}
+            onConnect={() => setIsWalletModalOpen(true)}
+            onDisconnect={disconnectWallet}
+            onSwitchChain={switchNetwork}
+            supportedChains={SUPPORTED_CHAINS}
+          />
+        </div>
 
         {/* Main Content */}
         <main className="relative">
-        {/* Hero Section */}
-        {activeSection === Section.DASHBOARD && (
-          <HeroSection
-            tvl={protocolStats.tvl}
-            totalStakers={protocolStats.totalStakers}
-            apy={protocolStats.apy}
-          />
-        )}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-8">
+            {/* Dashboard Section */}
+            {activeSection === Section.DASHBOARD && (
+              <div className="space-y-6">
+                <HeroSection
+                  tvl="$12,500,000"
+                  totalStakers="1,234"
+                  apy="24.5"
+                />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-8">
-          {/* Dashboard Section */}
-          {activeSection === Section.DASHBOARD && (
-            <div className="space-y-6">
-              {/* Hero Section */}
-              <HeroSection
-                tvl={protocolStats.tvl}
-                totalStakers={protocolStats.totalStakers}
-                apy={protocolStats.apy}
-              />
-
-              {/* Balance Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="glass-card p-6 hover:scale-[1.02] transition-transform">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-400 uppercase tracking-wider">Native Balance</div>
-                    <i className="fas fa-wallet text-cyan-400/50"></i>
-                  </div>
-                  <div className="text-3xl font-bold">{balances.native} {currentChain.nativeCurrency.symbol}</div>
-                </div>
-                <div className="glass-card p-6 hover:scale-[1.02] transition-transform">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-400 uppercase tracking-wider">VEC Balance</div>
-                    <i className="fas fa-coins text-cyan-400/50"></i>
-                  </div>
-                  <div className="text-3xl font-bold text-cyan-400">{balances.vec} VEC</div>
-                </div>
-                <div className="glass-card p-6 hover:scale-[1.02] transition-transform">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-400 uppercase tracking-wider">Staked</div>
-                    <i className="fas fa-lock text-blue-400/50"></i>
-                  </div>
-                  <div className="text-3xl font-bold text-blue-400">{balances.staked} VEC</div>
-                </div>
-              </div>
-
-              {/* Additional Cards Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Faucet Card */}
-                <div className="glass-card p-6">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <i className="fas fa-faucet text-cyan-400"></i>
-                    VEC Faucet
-                  </h3>
-                  <p className="text-sm text-gray-400 mb-4">Get test tokens for {currentChain.name}</p>
-                  <button
-                    onClick={handleFaucetClaim}
-                    disabled={!account || loading}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:shadow-lg hover:shadow-cyan-500/30 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Processing...' : 'Claim 5,000 VEC'}
-                  </button>
-                </div>
-
-                {/* Rewards Card */}
-                <div className="glass-card p-6">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <i className="fas fa-bolt text-yellow-400"></i>
-                    Pending Rewards
-                  </h3>
-                  <div className="text-4xl font-bold text-yellow-400 mb-2">{balances.rewards} VEC</div>
-                  <p className="text-sm text-gray-400 mb-4">Available to claim</p>
-                  <button
-                    onClick={handleClaim}
-                    disabled={!account || loading || parseFloat(balances.rewards) <= 0}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl hover:shadow-lg hover:shadow-yellow-500/30 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Processing...' : 'Claim Rewards'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Staking Section */}
-          {activeSection === Section.STAKE && (
-            <div className="max-w-5xl mx-auto">
-              <StakingCard
-                account={account}
-                balances={balances}
-                currentChain={currentChain}
-                stakeInfo={stakeInfo}
-                onStake={handleStake}
-                onUnstake={handleUnstake}
-                onClaim={handleClaim}
-                loading={loading}
-              />
-            </div>
-          )}
-
-          {/* Swap Section - Uniswap Style */}
-          {activeSection === Section.SWAP && (
-            <div className="max-w-2xl mx-auto">
-              <div className="glass-card p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <i className="fas fa-exchange-alt text-cyan-400"></i>
-                    Swap Tokens
-                  </h2>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-white">
-                    <i className="fas fa-cog"></i>
-                  </button>
-                </div>
-
-                {/* From Token */}
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm text-gray-400 font-medium">From</label>
-                    <span className="text-xs text-gray-500">Balance: {balances.vec} VEC</span>
-                  </div>
-                  <div className="glass-card p-4 flex items-center gap-4">
-                    <input
-                      type="number"
-                      placeholder="0.0"
-                      className="flex-1 text-3xl font-bold bg-transparent text-white placeholder-gray-600 focus:outline-none"
-                    />
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
-                      <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center">
-                        <i className="fas fa-coins text-white text-xs"></i>
-                      </div>
-                      <span className="font-semibold">VEC</span>
-                      <i className="fas fa-chevron-down text-xs text-gray-400"></i>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Swap Arrow Button */}
-                <div className="flex justify-center -my-2 relative z-10">
-                  <button className="w-12 h-12 bg-white/10 hover:bg-white/20 border-4 border-[#0B0E11] rounded-full flex items-center justify-center transition-all hover:scale-110">
-                    <i className="fas fa-arrow-down text-cyan-400"></i>
-                  </button>
-                </div>
-
-                {/* To Token */}
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm text-gray-400 font-medium">To</label>
-                    <span className="text-xs text-gray-500">Balance: {balances.native} {currentChain.nativeCurrency.symbol}</span>
-                  </div>
-                  <div className="glass-card p-4 flex items-center gap-4">
-                    <input
-                      type="number"
-                      placeholder="0.0"
-                      className="flex-1 text-3xl font-bold bg-transparent text-white placeholder-gray-600 focus:outline-none"
-                    />
-                    <button className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all">
-                      <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                        <i className="fab fa-btc text-white text-xs"></i>
-                      </div>
-                      <span className="font-semibold">{currentChain.nativeCurrency.symbol}</span>
-                      <i className="fas fa-chevron-down text-xs text-gray-400"></i>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Swap Info */}
-                <div className="glass-card p-4 mb-6 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Price</span>
-                    <span className="text-white">1 VEC = 0.001 {currentChain.nativeCurrency.symbol}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Slippage Tolerance</span>
-                    <span className="text-white">0.5%</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Network Fee</span>
-                    <span className="text-white">~0.001 {currentChain.nativeCurrency.symbol}</span>
-                  </div>
-                </div>
-
-                {/* Swap Button */}
-                <button className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:shadow-lg hover:shadow-cyan-500/30 transition-all font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled={!account}>
-                  {!account ? 'Connect Wallet' : 'Swap'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* NFTs Section */}
-          {activeSection === Section.NFT && (
-            <div className="space-y-6">
-              <div className="glass-card p-8">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                  <i className="fas fa-image text-cyan-400"></i>
-                  NFT Collection
-                </h2>
+                {/* Balance Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="glass-card p-4 hover:scale-105 transition-transform">
-                      <div className="aspect-square bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-xl mb-4 flex items-center justify-center">
-                        <i className="fas fa-image text-4xl text-gray-500"></i>
+                  {['Native Balance', 'VEC Balance', 'Staked'].map((title, index) => (
+                    <div key={index} className="glass-card p-6 hover:scale-[1.02] transition-transform">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-sm text-gray-400 uppercase tracking-wide">{title}</div>
+                        <i className={`fas ${
+                          index === 0 ? 'fa-wallet text-cyan-400/50' : 
+                          index === 1 ? 'fa-coins text-cyan-400/50' : 
+                          'fa-lock text-blue-400/50'
+                        }`}></i>
                       </div>
-                      <h3 className="font-bold mb-2">NFT #{i}</h3>
-                      <p className="text-sm text-gray-400">Coming Soon</p>
+                      <div className={`text-3xl font-bold ${
+                        index === 1 ? 'text-cyan-400' : 
+                        index === 2 ? 'text-blue-400' : 'text-white'
+                      }`}>
+                        {index === 0 ? `${balances.native} ${currentChain.nativeCurrency.symbol}` : 
+                         index === 1 ? `${balances.vec} VEC` : 
+                         `${balances.staked} VEC`}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* Governance Section - Professional Coming Soon */}
-          {activeSection === Section.GOVERNANCE && (
-            <div className="max-w-4xl mx-auto">
-              <div className="glass-card p-16 text-center">
-                <div className="w-32 h-32 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-8">
-                  <i className="fas fa-vote-yea text-6xl text-cyan-400/50"></i>
-                </div>
-                <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  Governance
-                </h2>
-                <p className="text-xl text-gray-400 mb-2">Coming Soon</p>
-                <p className="text-sm text-gray-500 max-w-md mx-auto">
-                  DAO voting and proposal features will be available in the next update. 
-                  Participate in protocol governance and shape the future of VelaCore.
-                </p>
-                <div className="mt-12 flex items-center justify-center gap-8 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <i className="fas fa-check-circle text-green-400"></i>
-                    <span>Proposal Creation</span>
+                {/* Additional Cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Faucet Card */}
+                  <div className="glass-card p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <i className="fas fa-faucet text-cyan-400"></i>
+                      VEC Faucet
+                    </h3>
+                    <p className="text-sm text-gray-400 mb-4">
+                      Get test tokens for {currentChain.name}
+                    </p>
+                    <button
+                      onClick={handleFaucetClaim}
+                      disabled={!account || loading}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:shadow-lg hover:shadow-cyan-500/30 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Processing...' : 'Claim 5,000 VEC'}
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <i className="fas fa-check-circle text-green-400"></i>
-                    <span>Voting System</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <i className="fas fa-check-circle text-green-400"></i>
-                    <span>Governance Tokens</span>
+
+                  {/* Rewards Card */}
+                  <div className="glass-card p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <i className="fas fa-bolt text-yellow-400"></i>
+                      Pending Rewards
+                    </h3>
+                    <div className="text-4xl font-bold text-yellow-400 mb-2">{balances.rewards} VEC</div>
+                    <p className="text-sm text-gray-400 mb-4">Available to claim</p>
+                    <button
+                      onClick={handleClaim}
+                      disabled={!account || loading || parseFloat(balances.rewards) <= 0}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl hover:shadow-lg hover:shadow-yellow-500/30 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Processing...' : 'Claim Rewards'}
+                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Bridge Section */}
-          {activeSection === 'bridge' as Section && (
-            <div className="space-y-6">
-              <div className="glass-card p-8">
-                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                  <i className="fas fa-bridge text-cyan-400"></i>
-                  Cross-Chain Bridge
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="glass-card p-6">
-                    <label className="block text-sm text-gray-400 mb-2">From Chain</label>
-                    <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-500/50">
-                      <option>BNB Smart Chain</option>
-                      <option>Flow Testnet</option>
-                    </select>
-                  </div>
-                  <div className="glass-card p-6">
-                    <label className="block text-sm text-gray-400 mb-2">To Chain</label>
-                    <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-cyan-500/50">
-                      <option>Flow Testnet</option>
-                      <option>BNB Smart Chain</option>
-                    </select>
-                  </div>
+            {/* Staking Section */}
+            {activeSection === Section.STAKE && (
+              <div className="max-w-5xl mx-auto">
+                <StakingCard
+                  account={account}
+                  balances={balances}
+                  currentChain={currentChain}
+                  stakeInfo={stakeInfo}
+                  onStake={handleStake}
+                  onUnstake={handleUnstake}
+                  onClaim={handleClaim}
+                  loading={loading}
+                />
+              </div>
+            )}
+
+            {/* Swap Section */}
+            {activeSection === Section.SWAP && (
+              <SwapPage />
+            )}
+
+            {/* NFTs Section */}
+            {activeSection === Section.NFT && (
+              <NFTPage />
+            )}
+
+            {/* Governance Section */}
+            {activeSection === Section.GOVERNANCE && (
+              <GovernancePage />
+            )}
+
+            {/* Bridge Section */}
+            {activeSection === 'bridge' as Section && (
+              <BridgePage />
+            )}
+
+            {/* AI Analytics Section */}
+            {activeSection === 'ai-analytics' as Section && (
+              <div className="max-w-7xl mx-auto">
+                <AIAnalytics />
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* Enhanced AI Chatbot */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300"
+        >
+          <i className={`fas ${isChatOpen ? 'fa-times' : 'fa-comment'} text-white text-xl`}></i>
+        </button>
+        
+        {isChatOpen && (
+          <div className="absolute bottom-20 right-0 w-80 bg-[#0B0E11] border border-cyan-500/30 rounded-xl shadow-2xl overflow-hidden">
+            <div className="p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-b border-cyan-500/20">
+              <h3 className="font-bold">VelaCore AI Assistant</h3>
+              <p className="text-xs text-cyan-400">Powered by Google Gemini</p>
+            </div>
+            
+            {/* Chat Messages */}
+            <div 
+              ref={chatContainerRef}
+              className="h-64 p-4 overflow-y-auto space-y-3"
+            >
+              {chatMessages.map((msg, index) => (
+                <div 
+                  key={index} 
+                  className={`p-3 rounded-lg max-w-[85%] ${
+                    msg.isUser 
+                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 ml-auto' 
+                      : 'bg-white/5'
+                  }`}
+                >
+                  <p className="text-sm">{msg.text}</p>
                 </div>
-                <div className="glass-card p-6 mt-6">
-                  <label className="block text-sm text-gray-400 mb-2">Amount</label>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50"
-                  />
+              ))}
+              {aiLoading && (
+                <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg max-w-[85%]">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                  </div>
+                  <span className="text-xs text-gray-400">AI is thinking...</span>
                 </div>
-                <button className="w-full mt-6 px-6 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:shadow-lg hover:shadow-cyan-500/30 transition-all font-semibold">
-                  Bridge Tokens
+              )}
+            </div>
+            
+            {/* Chat Input */}
+            <div className="p-4 border-t border-white/10">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  onKeyPress={handleAiKeyPress}
+                  placeholder="Ask about VelaCore..."
+                  className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500/50"
+                  disabled={aiLoading}
+                />
+                <button 
+                  onClick={handleAiSend}
+                  disabled={!aiInput.trim() || aiLoading}
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {aiLoading ? (
+                    <i className="fas fa-spinner fa-spin"></i>
+                  ) : (
+                    <i className="fas fa-paper-plane"></i>
+                  )}
                 </button>
               </div>
+              <p className="text-xs text-gray-500 mt-2 text-center">
+                Ask about staking, APY, tokens, or DeFi
+              </p>
             </div>
-          )}
-        </div>
-      </main>
+          </div>
+        )}
       </div>
 
       {/* Wallet Modal */}
@@ -880,61 +867,54 @@ export default function App() {
 
       {/* Loading Overlay */}
       {loading && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+        <div className="fixed inset-0 z-40 bg-black/60 flex items-center justify-center">
           <div className="glass-card p-8">
             <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-center text-gray-400 font-medium">Processing transaction...</p>
+            <p className="text-center text-gray-300 font-medium">Processing transaction...</p>
           </div>
         </div>
       )}
 
-      {/* Custom Styles */}
+      {/* Styles */}
       <style>{`
         .glass-card {
           background: rgba(255, 255, 255, 0.03);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 1.5rem;
-          box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+          border-radius: 1rem;
+          transition: all 0.3s ease;
         }
         
         .glass-card:hover {
           border-color: rgba(6, 182, 212, 0.3);
           box-shadow: 0 8px 32px 0 rgba(6, 182, 212, 0.2);
         }
-
-        /* Responsive adjustments handled by Tailwind classes */
-
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
+        
+        /* Mobile sidebar fix */
+        @media (max-width: 1024px) {
+          .lg\\:ml-64 {
+            margin-left: 0 !important;
+          }
         }
-
-        @keyframes zoom-in {
-          from { transform: scale(0.95); }
-          to { transform: scale(1); }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+          width: 6px;
         }
-
-        @keyframes slide-in-from-bottom-5 {
-          from { transform: translate(-50%, 100%); }
-          to { transform: translate(-50%, 0); }
+        
+        ::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
         }
-
-        .animate-in {
-          animation: fade-in 0.2s ease-out;
+        
+        ::-webkit-scrollbar-thumb {
+          background: rgba(6, 182, 212, 0.5);
+          border-radius: 10px;
         }
-
-        .fade-in {
-          animation: fade-in 0.2s ease-out;
-        }
-
-        .zoom-in {
-          animation: zoom-in 0.2s ease-out;
-        }
-
-        .slide-in-from-bottom-5 {
-          animation: slide-in-from-bottom-5 0.3s ease-out;
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(6, 182, 212, 0.7);
         }
       `}</style>
     </div>

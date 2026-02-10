@@ -33,10 +33,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                <i className="fas fa-cube text-white text-xl"></i>
-              </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#0B0E11] animate-pulse"></div>
+              <img src="https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg" alt="VelaCore" className="w-12 h-12" />
             </div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">

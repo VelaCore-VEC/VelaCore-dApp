@@ -16,7 +16,10 @@ export const CONFIG = {
   
   // PRIMARY PROTOCOL ADDRESSES
   VEC_TOKEN_ADDRESS: "0x1D3516E449aC7f08F5773Dc8d984E1174420867a", 
-  STAKING_CONTRACT_ADDRESS: "0x8c8A80E75D38d29A27770f90798DF479b294aC51" 
+  STAKING_CONTRACT_ADDRESS: "0x8c8A80E75D38d29A27770f90798DF479b294aC51",
+
+  BNB_RPC_URL: process.env.BNB_RPC_URL || 'https://bsc-testnet.publicnode.com',
+  FLOW_RPC_URL: process.env.FLOW_RPC_URL || 'https://rest-testnet.onflow.org',
 };
 
 export const BSC_TESTNET_PARAMS: NetworkConfig = {
