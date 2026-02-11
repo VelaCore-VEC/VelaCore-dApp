@@ -6,9 +6,11 @@
   "dependencies": {
     "@google/genai": "^1.35.0",
     "@google/generative-ai": "^0.24.1",
+    "@walletconnect/client": "^1.8.0",
+    "@walletconnect/qrcode-modal": "^1.8.0",
     "@walletconnect/types": "^2.23.3",
     "@walletconnect/universal-provider": "^2.23.3",
-    "@walletconnect/utils": "^2.23.3",
+    "@walletconnect/utils": "^2.23.5",
     "ethers": "^6.16.0",
     "framer-motion": "^12.31.0",
     "lucide-react": "^0.563.0",

@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Footer */}
           <div className="p-4 border-t border-cyan-500/20">
             <div className="text-xs text-gray-500 text-center">
-              <p>© 2024 VelaCore</p>
+              <p>© 2026 VelaCore</p>
               <p className="mt-1 text-cyan-400">Connected to BNB Chain</p>
             </div>
           </div>

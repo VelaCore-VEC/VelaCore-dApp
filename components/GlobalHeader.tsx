@@ -7,94 +7,147 @@ interface GlobalHeaderProps {
   onDisconnect: () => void;
   onSwitchChain: (chainId: string) => void;
   supportedChains: any[];
+  connectedWalletId?: string | null;
 }
 
-/**
- * GlobalHeader - Professional header with wallet connection and chain switcher
- * Features: RainbowKit-style wallet button, multi-chain switcher, logo
- */
+const getWalletIcon = (walletId: string) => {
+  switch (walletId) {
+    case 'metamask': return '🦊';
+    case 'trustwallet': return '🔵';
+    case 'coinbase': return '💎';
+    case 'binance': return '🟡';
+    case 'casper': return '💎';
+    case 'phantom': return '👻';
+    case 'walletconnect': return '📱';
+    default: return '👛';
+  }
+};
+
+const getWalletName = (walletId: string) => {
+  switch (walletId) {
+    case 'metamask': return 'MetaMask';
+    case 'trustwallet': return 'Trust';
+    case 'coinbase': return 'Coinbase';
+    case 'binance': return 'Binance';
+    case 'casper': return 'Casper';
+    case 'phantom': return 'Phantom';
+    case 'walletconnect': return 'WalletConnect';
+    default: return walletId;
+  }
+};
+
 export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   account,
   currentChain,
   onConnect,
   onDisconnect,
   onSwitchChain,
-  supportedChains
+  supportedChains,
+  connectedWalletId
 }) => {
-  const fmtAddr = (addr: string | null): string => {
-    if (!addr) return '0x000...0000';
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0B0E11]/80 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <img src="https://velacore.github.io/VelaCore-DApp9/VelaCore-symbol-dark.svg" alt="VelaCore" className="w-12 h-12" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Vela<span className="text-cyan-400">Core</span>
-              </h1>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Protocol v2.0</p>
+    <div className="bg-[#0B0E11]/95 backdrop-blur-xl border-b border-cyan-500/20 px-6 py-3">
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        {/* NETWORK SELECTOR - ONLY THIS */}
+        <div className="relative group">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:border-cyan-500/30 transition-all cursor-pointer">
+            <div className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                currentChain.id === 'bsc' ? 'bg-yellow-400' : 'bg-green-400'
+              }`}></div>
+              <span className="text-sm font-medium text-white">
+                {currentChain.name}
+              </span>
+              <i className="fas fa-chevron-down text-xs text-gray-400 ml-1"></i>
             </div>
           </div>
-
-          {/* Chain Switcher */}
-          {account && (
-            <div className="hidden md:flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-1">
-              {supportedChains.map((chain) => (
+          
+          {/* Network Dropdown */}
+          <div className="absolute top-full left-0 mt-2 w-56 bg-[#0B0E11] border border-cyan-500/30 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+            <div className="p-2">
+              <div className="text-xs text-gray-400 font-semibold px-3 py-2">SELECT NETWORK</div>
+              {supportedChains.map(chain => (
                 <button
                   key={chain.id}
                   onClick={() => onSwitchChain(chain.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    currentChain.id === chain.id
-                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/10'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
+                    currentChain.id === chain.id 
+                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30' 
+                      : 'hover:bg-white/5'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${
                       chain.id === 'bsc' ? 'bg-yellow-400' : 'bg-green-400'
-                    } ${currentChain.id === chain.id ? 'animate-pulse' : ''}`}></div>
-                    {chain.name}
+                    }`}></div>
+                    <span className="text-sm">{chain.name}</span>
                   </div>
+                  {currentChain.id === chain.id && (
+                    <i className="fas fa-check text-cyan-400 text-xs"></i>
+                  )}
                 </button>
               ))}
             </div>
-          )}
-
-          {/* Wallet Button */}
-          <div className="flex items-center gap-3">
-            {account ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-gray-300">{fmtAddr(account)}</span>
-                </div>
-                <button
-                  onClick={onDisconnect}
-                  className="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/20 transition-all duration-200 text-sm font-medium"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={onConnect}
-                className="group relative px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl hover:shadow-lg hover:shadow-cyan-500/30 transition-all duration-200 text-sm font-semibold overflow-hidden"
-              >
-                <span className="relative z-10">Connect Wallet</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-              </button>
-            )}
           </div>
         </div>
+
+        {/* WALLET SECTION */}
+        <div className="flex items-center gap-3">
+          {account ? (
+            <>
+              {connectedWalletId && (
+                <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl">
+                  <span className="text-sm">{getWalletIcon(connectedWalletId)}</span>
+                  <span className="text-sm font-medium">
+                    {getWalletName(connectedWalletId)}
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
+                <div className="relative">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <div className="absolute -inset-1 bg-green-400 rounded-full animate-ping opacity-20"></div>
+                </div>
+                <span className="text-sm font-mono">
+                  {`${account.substring(0, 6)}...${account.substring(account.length - 4)}`}
+                </span>
+              </div>
+              
+              <button
+                onClick={onDisconnect}
+                className="p-2 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl transition-all"
+                title="Disconnect"
+              >
+                <i className="fas fa-power-off text-gray-400 hover:text-red-400"></i>
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onConnect}
+              className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-medium transition-all hover:shadow-lg hover:shadow-cyan-500/30 flex items-center gap-2"
+            >
+              <i className="fas fa-wallet"></i>
+              <span>Connect</span>
+            </button>
+          )}
+        </div>
       </div>
-    </header>
+
+      {/* Mobile Network Selector */}
+      <div className="md:hidden mt-3">
+        <select 
+          value={currentChain.id}
+          onChange={(e) => onSwitchChain(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+        >
+          {supportedChains.map(chain => (
+            <option key={chain.id} value={chain.id}>
+              {chain.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
   );
 };
-
