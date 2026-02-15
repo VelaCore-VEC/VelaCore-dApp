@@ -17,8 +17,7 @@ import { BridgePage } from './components/BridgePage';
 /**
  * =========================================================================
  * VELA-CORE PROTOCOL - COMPLETE FIXED VERSION
- * ALL WALLETS WORKING - METAMASK, TRUST, COINBASE, BINANCE, CASPER, PHANTOM, WALLETCONNECT
- * NO LOGO IN HEADER - ONLY NETWORK SELECTOR
+ * WITH CORRECT CONTRACT ADDRESSES FOR BSC AND FLOW
  * =========================================================================
  */
 
@@ -52,18 +51,21 @@ const SUPPORTED_CHAINS = [
   }
 ];
 
+// ============================================
+// CORRECT CONTRACT ADDRESSES - VERIFIED
+// ============================================
 const CHAIN_CONFIGS = {
   bsc: {
-    VEC_TOKEN_ADDRESS: CONFIG.VEC_TOKEN_ADDRESS,
-    STAKING_CONTRACT_ADDRESS: CONFIG.STAKING_CONTRACT_ADDRESS,
-    FAUCET_CONTRACT_ADDRESS: "0x9bfe0Be0C065487eBb0F66E24CDf8F9cf1D750Cf",
+    VEC_TOKEN_ADDRESS: "0x1D3516E449aC7f08F5773Dc8d984E1174420867a", // CORRECT BSC TOKEN
+    STAKING_CONTRACT_ADDRESS: "0x8c8A80E75D38d29A27770f90798DF479b294aC51", // CORRECT BSC STAKING
+    FAUCET_CONTRACT_ADDRESS: "0x9bfe0Be0C065487eBb0F66E24CDf8F9cf1D750Cf", // CORRECT BSC FAUCET
     CHAIN_PARAMS: BSC_TESTNET_PARAMS,
     EXPLORER_URL: 'https://testnet.bscscan.com'
   },
   flow: {
-    VEC_TOKEN_ADDRESS: "0x82829a882AB09864c5f2D1DA7F3F6650bFE2ebb8",
-    STAKING_CONTRACT_ADDRESS: "0xc75608EfEc43aC569EAB2b7DA8D1A23FE653e80B",
-    FAUCET_CONTRACT_ADDRESS: "0x3a7A83c2ebB7CF0B253E6334A1900A9308aa0e81",
+    VEC_TOKEN_ADDRESS: "0x82829a882AB09864c5f2D1DA7F3F6650bFE2ebb8", // CORRECT FLOW TOKEN
+    STAKING_CONTRACT_ADDRESS: "0xc75608EfEc43aC569EAB2b7DA8D1A23FE653e80B", // CORRECT FLOW STAKING
+    FAUCET_CONTRACT_ADDRESS: "0x3a7A83c2ebB7CF0B253E6334A1900A9308aa0e81", // CORRECT FLOW FAUCET
     CHAIN_PARAMS: FLOW_TESTNET_PARAMS,
     EXPLORER_URL: 'https://testnet.flowscan.io'
   }
@@ -453,24 +455,42 @@ export default function App() {
     }
   };
 
-  // Refresh Data
+  // ============================================
+  // REFRESH DATA - WITH CORRECT CONTRACT ADDRESSES
+  // ============================================
   const refreshData = useCallback(async (currentAccount: string, rawProvider: any) => {
     try {
       const browserProvider = new ethers.BrowserProvider(rawProvider);
       const currentConfig = getChainConfig(currentChain.id);
 
+      console.log(`Refreshing data for chain: ${currentChain.id}`);
+      console.log(`Token Address: ${currentConfig.VEC_TOKEN_ADDRESS}`);
+      console.log(`Staking Address: ${currentConfig.STAKING_CONTRACT_ADDRESS}`);
+      console.log(`Faucet Address: ${currentConfig.FAUCET_CONTRACT_ADDRESS}`);
+
       const [nativeBal, vecBal, stakeInfoData] = await Promise.allSettled([
         browserProvider.getBalance(currentAccount).catch(() => 0n),
         (async () => {
-          const vecContract = new ethers.Contract(currentConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, browserProvider);
-          return await vecContract.balanceOf(currentAccount).catch(() => 0n);
+          try {
+            const vecContract = new ethers.Contract(currentConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, browserProvider);
+            const balance = await vecContract.balanceOf(currentAccount);
+            console.log(`VEC Balance for ${currentChain.id}:`, ethers.formatUnits(balance, 18));
+            return balance;
+          } catch (error) {
+            console.error(`Error fetching VEC balance on ${currentChain.id}:`, error);
+            return 0n;
+          }
         })(),
         (async () => {
           try {
             const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, browserProvider);
             const info = await stakingContract.getUserStakeInfo(currentAccount);
+            console.log(`Stake Info for ${currentChain.id}:`, info);
             return info;
-          } catch { return [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false]; }
+          } catch (error) {
+            console.error(`Error fetching stake info on ${currentChain.id}:`, error);
+            return [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
+          }
         })()
       ]);
 
@@ -479,7 +499,9 @@ export default function App() {
       const vecBalance = vecBal.status === 'fulfilled' ? vecBal.value : 0n;
       
       let stakeData: any[] = [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
-      if (stakeInfoData.status === 'fulfilled') stakeData = stakeInfoData.value as any[];
+      if (stakeInfoData.status === 'fulfilled') {
+        stakeData = stakeInfoData.value as any[];
+      }
 
       const stakedAmount = BigInt(stakeData[0] || 0);
       const pendingReward = BigInt(stakeData[1] || 0);
@@ -508,6 +530,14 @@ export default function App() {
         lockupPeriod: lockupPeriod,
         canWithdraw: canWithdrawNow || canWithdraw
       });
+
+      console.log('Updated balances:', {
+        native: parseFloat(ethers.formatUnits(nativeBalance, decimals)).toFixed(4),
+        vec: parseFloat(ethers.formatUnits(vecBalance, decimals)).toFixed(2),
+        staked: parseFloat(ethers.formatUnits(stakedAmount, decimals)).toFixed(2),
+        rewards: parseFloat(ethers.formatUnits(pendingReward, decimals)).toFixed(4)
+      });
+
     } catch (error) {
       console.error("Refresh error:", error);
     }
@@ -805,7 +835,9 @@ export default function App() {
     } finally { setLoading(false); }
   };
 
-  // Staking Functions
+  // ============================================
+  // STAKING FUNCTIONS - WITH CORRECT CONTRACT ADDRESSES
+  // ============================================
   const handleStake = async (amount: string, lockPeriod: number) => {
     if (!provider || !account) { showToast("Please connect wallet first", "error"); return; }
     if (stakeInfo.isActive) { showToast("You already have an active stake", "error"); return; }
@@ -817,13 +849,29 @@ export default function App() {
       const browserProvider = new ethers.BrowserProvider(provider);
       const currentConfig = getChainConfig(currentChain.id);
       const signer = await browserProvider.getSigner();
+
+      console.log(`Staking on ${currentChain.id}`);
+      console.log(`Token Address: ${currentConfig.VEC_TOKEN_ADDRESS}`);
+      console.log(`Staking Address: ${currentConfig.STAKING_CONTRACT_ADDRESS}`);
+      console.log(`Amount: ${amount} VEC`);
+      console.log(`Lock Period: ${lockPeriod} days`);
+
+      // Approve tokens
       const vecContract = new ethers.Contract(currentConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, signer);
       const amountWei = ethers.parseUnits(amount, 18);
+      
+      console.log('Approving tokens...');
       const approveTx = await vecContract.approve(currentConfig.STAKING_CONTRACT_ADDRESS, amountWei);
       await approveTx.wait();
+      console.log('Approval successful');
+
+      // Stake tokens
       const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
+      console.log('Staking tokens...');
       const stakeTx = await stakingContract.stake(amountWei, lockPeriod);
       await stakeTx.wait();
+      console.log('Staking successful');
+
       showToast("Staked successfully!", "success");
       await refreshData(account, provider);
     } catch (error: any) {
@@ -840,18 +888,25 @@ export default function App() {
       const remaining = stakeInfo.unlockTime - now;
       if (remaining > 0) {
         const days = Math.floor(remaining / 86400);
-        showToast(`Lock period ends in ${days} day(s)`, "error");
+        const hours = Math.floor((remaining % 86400) / 3600);
+        showToast(`Cannot unstake yet. Lock period ends in ${days}d ${hours}h`, "error");
         return;
       }
     }
+
     setLoading(true);
     try {
       const browserProvider = new ethers.BrowserProvider(provider);
       const currentConfig = getChainConfig(currentChain.id);
       const signer = await browserProvider.getSigner();
+
+      console.log(`Unstaking on ${currentChain.id}`);
+      console.log(`Staking Address: ${currentConfig.STAKING_CONTRACT_ADDRESS}`);
+
       const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
       const tx = await stakingContract.withdraw();
       await tx.wait();
+
       showToast("Unstaked successfully!", "success");
       await refreshData(account, provider);
     } catch (error: any) {
@@ -862,14 +917,22 @@ export default function App() {
 
   const handleClaim = async () => {
     if (!provider || !account) { showToast("Please connect wallet first", "error"); return; }
+    if (parseFloat(balances.rewards) <= 0) { showToast("No rewards to claim", "error"); return; }
+
     setLoading(true);
     try {
       const browserProvider = new ethers.BrowserProvider(provider);
       const currentConfig = getChainConfig(currentChain.id);
       const signer = await browserProvider.getSigner();
+
+      console.log(`Claiming rewards on ${currentChain.id}`);
+      console.log(`Staking Address: ${currentConfig.STAKING_CONTRACT_ADDRESS}`);
+      console.log(`Rewards amount: ${balances.rewards} VEC`);
+
       const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
       const tx = await stakingContract.claimRewards();
       await tx.wait();
+
       showToast("Rewards claimed successfully!", "success");
       await refreshData(account, provider);
     } catch (error: any) {
@@ -880,18 +943,25 @@ export default function App() {
 
   const handleFaucetClaim = async () => {
     if (!provider || !account) { showToast("Please connect wallet first", "error"); return; }
+
     setLoading(true);
     try {
       const browserProvider = new ethers.BrowserProvider(provider);
       const currentConfig = getChainConfig(currentChain.id);
       const signer = await browserProvider.getSigner();
+
+      console.log(`Claiming from faucet on ${currentChain.id}`);
+      console.log(`Faucet Address: ${currentConfig.FAUCET_CONTRACT_ADDRESS}`);
+
       const faucetContract = new ethers.Contract(
         currentConfig.FAUCET_CONTRACT_ADDRESS,
         ["function claimTokens() external"],
         signer
       );
+
       const tx = await faucetContract.claimTokens({ gasLimit: 300000 });
       await tx.wait();
+
       showToast("Tokens claimed successfully!", "success");
       await refreshData(account, provider);
     } catch (error: any) {
@@ -997,13 +1067,14 @@ export default function App() {
 
                 {/* Additional Cards */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Faucet Card */}
                   <div className="glass-card p-6">
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                       <i className="fas fa-faucet text-cyan-400"></i>
                       VEC Faucet
                     </h3>
                     <p className="text-sm text-gray-400 mb-4">
-                      Get test tokens for {currentChain.name}
+                      Get 5,000 VEC test tokens for {currentChain.name}
                     </p>
                     <button
                       onClick={handleFaucetClaim}
@@ -1014,6 +1085,7 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* Rewards Card */}
                   <div className="glass-card p-6">
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                       <i className="fas fa-bolt text-yellow-400"></i>
@@ -1033,7 +1105,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Other Sections */}
+            {/* Staking Section */}
             {activeSection === Section.STAKE && (
               <div className="max-w-5xl mx-auto">
                 <StakingCard
@@ -1049,6 +1121,7 @@ export default function App() {
               </div>
             )}
 
+            {/* Other Sections */}
             {activeSection === Section.SWAP && <SwapPage />}
             {activeSection === Section.NFT && <NFTPage />}
             {activeSection === Section.GOVERNANCE && <GovernancePage />}
