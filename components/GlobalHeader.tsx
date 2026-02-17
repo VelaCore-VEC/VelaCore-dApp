@@ -36,6 +36,13 @@ const getWalletName = (walletId: string) => {
   }
 };
 
+// Helper to get proper native symbol
+const getNativeSymbol = (chainId: string) => {
+  if (chainId === 'bsc' || chainId === '0x61') return 'tBNB';
+  if (chainId === 'flow' || chainId === '0x5eb5') return 'FLOW';
+  return 'ETH';
+};
+
 export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   account,
   currentChain,
@@ -45,45 +52,163 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   supportedChains,
   connectedWalletId
 }) => {
+  // Get proper chain display name with symbol
+  const getChainDisplayName = (chain: any) => {
+    if (chain.id === 'bsc' || chain.id === '0x61') {
+      return 'BNB Testnet (tBNB)';
+    }
+    if (chain.id === 'flow' || chain.id === '0x5eb5') {
+      return 'Flow Testnet (FLOW)';
+    }
+    return chain.name;
+  };
+
   return (
-    <div className="bg-[#0B0E11]/95 backdrop-blur-xl border-b border-cyan-500/20 px-6 py-3">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* NETWORK SELECTOR - ONLY THIS */}
-        <div className="relative group">
-          <div className="flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:border-cyan-500/30 transition-all cursor-pointer">
-            <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${
-                currentChain.id === 'bsc' ? 'bg-yellow-400' : 'bg-green-400'
-              }`}></div>
-              <span className="text-sm font-medium text-white">
-                {currentChain.name}
+    <div style={{
+      background: 'rgba(11, 14, 17, 0.95)',
+      backdropFilter: 'blur(10px)',
+      borderBottom: '1px solid rgba(6, 182, 212, 0.2)',
+      padding: '0.75rem 1.5rem',
+      position: 'sticky',
+      top: 0,
+      zIndex: 50
+    }}>
+      <div style={{
+        maxWidth: '1280px',
+        margin: '0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
+        {/* Network Selector */}
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.5rem 1rem',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '0.75rem',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <div style={{
+                width: '0.625rem',
+                height: '0.625rem',
+                borderRadius: '50%',
+                background: currentChain.id === 'bsc' || currentChain.id === '0x61' 
+                  ? '#F0B90B' 
+                  : '#16DB9A'
+              }}></div>
+              <span style={{
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                color: '#fff'
+              }}>
+                {getChainDisplayName(currentChain)}
               </span>
-              <i className="fas fa-chevron-down text-xs text-gray-400 ml-1"></i>
+              <i className="fas fa-chevron-down" style={{
+                fontSize: '0.75rem',
+                color: '#9CA3AF',
+                marginLeft: '0.25rem'
+              }}></i>
             </div>
           </div>
           
           {/* Network Dropdown */}
-          <div className="absolute top-full left-0 mt-2 w-56 bg-[#0B0E11] border border-cyan-500/30 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-            <div className="p-2">
-              <div className="text-xs text-gray-400 font-semibold px-3 py-2">SELECT NETWORK</div>
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: '0.5rem',
+            width: '240px',
+            background: '#0B0E11',
+            border: '1px solid rgba(6, 182, 212, 0.3)',
+            borderRadius: '0.75rem',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+            opacity: 0,
+            visibility: 'hidden',
+            transition: 'all 0.2s ease',
+            zIndex: 50
+          }}
+          className="network-dropdown">
+            <div style={{ padding: '0.5rem' }}>
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#9CA3AF',
+                fontWeight: '600',
+                padding: '0.5rem 0.75rem'
+              }}>
+                SELECT NETWORK
+              </div>
               {supportedChains.map(chain => (
                 <button
                   key={chain.id}
                   onClick={() => onSwitchChain(chain.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
-                    currentChain.id === chain.id 
-                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30' 
-                      : 'hover:bg-white/5'
-                  }`}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.625rem 0.75rem',
+                    borderRadius: '0.5rem',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    ...(currentChain.id === chain.id ? {
+                      background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.2))',
+                      border: '1px solid rgba(6, 182, 212, 0.3)'
+                    } : {})
+                  }}
+                  onMouseEnter={(e) => {
+                    if (currentChain.id !== chain.id) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (currentChain.id !== chain.id) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${
-                      chain.id === 'bsc' ? 'bg-yellow-400' : 'bg-green-400'
-                    }`}></div>
-                    <span className="text-sm">{chain.name}</span>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{
+                      width: '0.5rem',
+                      height: '0.5rem',
+                      borderRadius: '50%',
+                      background: chain.id === 'bsc' || chain.id === '0x61' 
+                        ? '#F0B90B' 
+                        : '#16DB9A'
+                    }}></div>
+                    <span style={{
+                      fontSize: '0.875rem'
+                    }}>
+                      {getChainDisplayName(chain)}
+                    </span>
                   </div>
                   {currentChain.id === chain.id && (
-                    <i className="fas fa-check text-cyan-400 text-xs"></i>
+                    <i className="fas fa-check" style={{
+                      color: '#06b6d4',
+                      fontSize: '0.75rem'
+                    }}></i>
                   )}
                 </button>
               ))}
@@ -91,41 +216,122 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
           </div>
         </div>
 
-        {/* WALLET SECTION */}
-        <div className="flex items-center gap-3">
+        {/* Wallet Section */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem'
+        }}>
           {account ? (
             <>
+              {/* Wallet Icon/Name */}
               {connectedWalletId && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl">
-                  <span className="text-sm">{getWalletIcon(connectedWalletId)}</span>
-                  <span className="text-sm font-medium">
+                <div style={{
+                  display: 'none',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 0.75rem',
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.1))',
+                  border: '1px solid rgba(6, 182, 212, 0.2)',
+                  borderRadius: '0.75rem'
+                }}
+                className="md-flex">
+                  <span style={{ fontSize: '0.875rem' }}>{getWalletIcon(connectedWalletId)}</span>
+                  <span style={{
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}>
                     {getWalletName(connectedWalletId)}
                   </span>
                 </div>
               )}
               
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
-                <div className="relative">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <div className="absolute -inset-1 bg-green-400 rounded-full animate-ping opacity-20"></div>
+              {/* Account Display */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '0.75rem'
+              }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    width: '0.5rem',
+                    height: '0.5rem',
+                    background: '#10b981',
+                    borderRadius: '50%'
+                  }}></div>
+                  <div style={{
+                    position: 'absolute',
+                    inset: '-0.25rem',
+                    background: '#10b981',
+                    borderRadius: '50%',
+                    animation: 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+                    opacity: 0.2
+                  }}></div>
                 </div>
-                <span className="text-sm font-mono">
+                <span style={{
+                  fontSize: '0.875rem',
+                  fontFamily: 'monospace'
+                }}>
                   {`${account.substring(0, 6)}...${account.substring(account.length - 4)}`}
                 </span>
               </div>
               
+              {/* Disconnect Button */}
               <button
                 onClick={onDisconnect}
-                className="p-2 bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl transition-all"
+                style={{
+                  padding: '0.5rem',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '0.75rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  color: '#9CA3AF'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                  e.currentTarget.style.color = '#ef4444';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.color = '#9CA3AF';
+                }}
                 title="Disconnect"
               >
-                <i className="fas fa-power-off text-gray-400 hover:text-red-400"></i>
+                <i className="fas fa-power-off"></i>
               </button>
             </>
           ) : (
             <button
               onClick={onConnect}
-              className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl font-medium transition-all hover:shadow-lg hover:shadow-cyan-500/30 flex items-center gap-2"
+              style={{
+                padding: '0.5rem 1.25rem',
+                background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                border: 'none',
+                borderRadius: '0.75rem',
+                color: '#fff',
+                fontWeight: '500',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #0891b2, #2563eb)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(6, 182, 212, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #06b6d4, #3b82f6)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
             >
               <i className="fas fa-wallet"></i>
               <span>Connect</span>
@@ -135,19 +341,60 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
       </div>
 
       {/* Mobile Network Selector */}
-      <div className="md:hidden mt-3">
+      <div style={{
+        display: 'none',
+        marginTop: '0.75rem'
+      }}
+      className="md-hide">
         <select 
           value={currentChain.id}
           onChange={(e) => onSwitchChain(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm"
+          style={{
+            width: '100%',
+            padding: '0.5rem 0.75rem',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '0.5rem',
+            color: '#fff',
+            fontSize: '0.875rem'
+          }}
         >
           {supportedChains.map(chain => (
-            <option key={chain.id} value={chain.id}>
-              {chain.name}
+            <option key={chain.id} value={chain.id} style={{ background: '#0B0E11' }}>
+              {getChainDisplayName(chain)}
             </option>
           ))}
         </select>
       </div>
+
+      {/* Styles for hover effects */}
+      <style>{`
+        .network-dropdown {
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(-10px);
+          transition: all 0.2s ease;
+        }
+        div:hover > .network-dropdown {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+        @media (max-width: 768px) {
+          .md-flex {
+            display: flex !important;
+          }
+          .md-hide {
+            display: block !important;
+          }
+        }
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 };

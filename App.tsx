@@ -33,20 +33,20 @@ const FLOW_TESTNET_PARAMS = {
 const SUPPORTED_CHAINS = [
   {
     id: 'bsc',
-    name: 'BNB Smart Chain',
+    name: 'BNB Testnet',
     chainId: 97,
     chainIdHex: '0x61',
-    rpcUrl: 'https://bsc-testnet.publicnode.com',
+    rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
     explorerUrl: 'https://testnet.bscscan.com',
-    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 }
+    nativeCurrency: { name: 'tBNB', symbol: 'tBNB', decimals: 18 }
   },
   {
     id: 'flow',
     name: 'Flow Testnet',
     chainId: 545,
     chainIdHex: '0x221',
-    rpcUrl: 'https://rest-testnet.onflow.org',
-    explorerUrl: 'https://testnet.flowscan.io',
+    rpcUrl: 'https://testnet.evm.nodes.onflow.org/',
+    explorerUrl: 'https://evm-testnet.flowscan.io',
     nativeCurrency: { name: 'FLOW', symbol: 'FLOW', decimals: 18 }
   }
 ];
@@ -56,18 +56,18 @@ const SUPPORTED_CHAINS = [
 // ============================================
 const CHAIN_CONFIGS = {
   bsc: {
-    VEC_TOKEN_ADDRESS: "0x1D3516E449aC7f08F5773Dc8d984E1174420867a", // CORRECT BSC TOKEN
-    STAKING_CONTRACT_ADDRESS: "0x8c8A80E75D38d29A27770f90798DF479b294aC51", // CORRECT BSC STAKING
-    FAUCET_CONTRACT_ADDRESS: "0x9bfe0Be0C065487eBb0F66E24CDf8F9cf1D750Cf", // CORRECT BSC FAUCET
+    VEC_TOKEN_ADDRESS: "0x1D3516E449aC7f08F5773Dc8d984E1174420867a",
+    STAKING_CONTRACT_ADDRESS: "0x8c8A80E75D38d29A27770f90798DF479b294aC51",
+    FAUCET_CONTRACT_ADDRESS: "0x9bfe0Be0C065487eBb0F66E24CDf8F9cf1D750Cf",
     CHAIN_PARAMS: BSC_TESTNET_PARAMS,
     EXPLORER_URL: 'https://testnet.bscscan.com'
   },
   flow: {
-    VEC_TOKEN_ADDRESS: "0x82829a882AB09864c5f2D1DA7F3F6650bFE2ebb8", // CORRECT FLOW TOKEN
-    STAKING_CONTRACT_ADDRESS: "0xc75608EfEc43aC569EAB2b7DA8D1A23FE653e80B", // CORRECT FLOW STAKING
-    FAUCET_CONTRACT_ADDRESS: "0x3a7A83c2ebB7CF0B253E6334A1900A9308aa0e81", // CORRECT FLOW FAUCET
+    VEC_TOKEN_ADDRESS: "0x82829a882AB09864c5f2D1DA7F3F6650bFE2ebb8",
+    STAKING_CONTRACT_ADDRESS: "0xc75608EfEc43aC569EAB2b7DA8D1A23FE653e80B",
+    FAUCET_CONTRACT_ADDRESS: "0x3a7A83c2ebB7CF0B253E6334A1900A9308aa0e81",
     CHAIN_PARAMS: FLOW_TESTNET_PARAMS,
-    EXPLORER_URL: 'https://testnet.flowscan.io'
+    EXPLORER_URL: 'https://evm-testnet.flowscan.io'
   }
 };
 
@@ -207,10 +207,8 @@ const detectAllWallets = (): WalletProvider[] => {
   
   if (window.coinbaseWalletExtension) {
     coinbaseProvider = window.coinbaseWalletExtension;
-  }
-  
-  if (!coinbaseProvider && ethereum?.isCoinbaseWallet === true) {
-    coinbaseProvider = ethereum;
+  } else if (window.ethereum?.isCoinbaseWallet === true) {
+    coinbaseProvider = window.ethereum;
   }
 
   if (coinbaseProvider) {
@@ -331,13 +329,22 @@ export default function App() {
   const [account, setAccount] = useState<string | null>(null);
   const [provider, setProvider] = useState<any>(null);
   const [currentChain, setCurrentChain] = useState(SUPPORTED_CHAINS[0]);
-  const [balances, setBalances] = useState<UserBalances>({
+  
+  // FIXED: Separate states for BSC and Flow
+  const [bscBalances, setBscBalances] = useState<UserBalances>({
     native: '0.0000',
     vec: '0',
     staked: '0',
     rewards: '0.0000'
   });
-  const [stakeInfo, setStakeInfo] = useState({
+  const [flowBalances, setFlowBalances] = useState<UserBalances>({
+    native: '0.0000',
+    vec: '0',
+    staked: '0',
+    rewards: '0.0000'
+  });
+  
+  const [bscStakeInfo, setBscStakeInfo] = useState({
     stakedAmount: '0',
     pendingReward: '0.0000',
     projectedAPY: '0%',
@@ -346,6 +353,16 @@ export default function App() {
     lockupPeriod: 0,
     canWithdraw: false
   });
+  const [flowStakeInfo, setFlowStakeInfo] = useState({
+    stakedAmount: '0',
+    pendingReward: '0.0000',
+    projectedAPY: '0%',
+    isActive: false,
+    unlockTime: 0,
+    lockupPeriod: 0,
+    canWithdraw: false
+  });
+  
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; visible: boolean }>({
@@ -365,6 +382,16 @@ export default function App() {
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const connectionAttemptedRef = useRef(false);
+
+  // Get current balances based on chain
+  const getCurrentBalances = () => {
+    return currentChain.id === 'bsc' ? bscBalances : flowBalances;
+  };
+
+  // Get current stake info based on chain
+  const getCurrentStakeInfo = () => {
+    return currentChain.id === 'bsc' ? bscStakeInfo : flowStakeInfo;
+  };
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type, visible: true });
@@ -407,7 +434,7 @@ export default function App() {
           setAccount(quickConnectResult.account);
           setProvider(quickConnectResult.provider);
           setConnectedWalletId(quickConnectResult.walletId);
-          await refreshData(quickConnectResult.account, quickConnectResult.provider);
+          await refreshAllChainData(quickConnectResult.account, quickConnectResult.provider);
           showToast(`Auto-connected`, 'success');
         }
       } catch (error) {
@@ -428,13 +455,14 @@ export default function App() {
     setAiInput('');
     
     try {
+      const currentBalances = getCurrentBalances();
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are VelaCore AI Assistant. Current: ${currentChain.name}, VEC: ${balances.vec}, Staked: ${balances.staked}. Question: ${message} Keep response under 3 sentences.`
+              text: `You are VelaCore AI Assistant. Current: ${currentChain.name}, VEC: ${currentBalances.vec}, Staked: ${currentBalances.staked}. Question: ${message} Keep response under 3 sentences.`
             }]
           }]
         })
@@ -456,92 +484,136 @@ export default function App() {
   };
 
   // ============================================
-  // REFRESH DATA - WITH CORRECT CONTRACT ADDRESSES
+  // REFRESH DATA FOR ALL CHAINS - FIXED VERSION
   // ============================================
-  const refreshData = useCallback(async (currentAccount: string, rawProvider: any) => {
+  const refreshAllChainData = useCallback(async (currentAccount: string, walletProvider: any) => {
     try {
-      const browserProvider = new ethers.BrowserProvider(rawProvider);
-      const currentConfig = getChainConfig(currentChain.id);
+      // Create separate providers for each chain
+      const bscProvider = new ethers.JsonRpcProvider(SUPPORTED_CHAINS[0].rpcUrl);
+      const flowProvider = new ethers.JsonRpcProvider(SUPPORTED_CHAINS[1].rpcUrl);
+      
+      const decimals = 18;
 
-      console.log(`Refreshing data for chain: ${currentChain.id}`);
-      console.log(`Token Address: ${currentConfig.VEC_TOKEN_ADDRESS}`);
-      console.log(`Staking Address: ${currentConfig.STAKING_CONTRACT_ADDRESS}`);
-      console.log(`Faucet Address: ${currentConfig.FAUCET_CONTRACT_ADDRESS}`);
-
-      const [nativeBal, vecBal, stakeInfoData] = await Promise.allSettled([
-        browserProvider.getBalance(currentAccount).catch(() => 0n),
+      // Refresh BSC data using BSC provider
+      const bscConfig = CHAIN_CONFIGS.bsc;
+      console.log(`Refreshing BSC data for account: ${currentAccount}`);
+      
+      const [bscNative, bscVec, bscStake] = await Promise.allSettled([
+        bscProvider.getBalance(currentAccount).catch((e) => {
+          console.log('BSC native balance error:', e);
+          return 0n;
+        }),
         (async () => {
           try {
-            const vecContract = new ethers.Contract(currentConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, browserProvider);
-            const balance = await vecContract.balanceOf(currentAccount);
-            console.log(`VEC Balance for ${currentChain.id}:`, ethers.formatUnits(balance, 18));
-            return balance;
-          } catch (error) {
-            console.error(`Error fetching VEC balance on ${currentChain.id}:`, error);
+            const vecContract = new ethers.Contract(bscConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, bscProvider);
+            return await vecContract.balanceOf(currentAccount);
+          } catch (e) {
+            console.log('BSC VEC balance error:', e);
             return 0n;
           }
         })(),
         (async () => {
           try {
-            const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, browserProvider);
-            const info = await stakingContract.getUserStakeInfo(currentAccount);
-            console.log(`Stake Info for ${currentChain.id}:`, info);
-            return info;
-          } catch (error) {
-            console.error(`Error fetching stake info on ${currentChain.id}:`, error);
+            const stakingContract = new ethers.Contract(bscConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, bscProvider);
+            return await stakingContract.getUserStakeInfo(currentAccount);
+          } catch (e) {
+            console.log('BSC stake info error:', e);
             return [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
           }
         })()
       ]);
 
-      const decimals = 18;
-      const nativeBalance = nativeBal.status === 'fulfilled' ? nativeBal.value : 0n;
-      const vecBalance = vecBal.status === 'fulfilled' ? vecBal.value : 0n;
+      // Refresh Flow data using Flow provider
+      const flowConfig = CHAIN_CONFIGS.flow;
+      console.log(`Refreshing Flow data for account: ${currentAccount}`);
       
-      let stakeData: any[] = [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
-      if (stakeInfoData.status === 'fulfilled') {
-        stakeData = stakeInfoData.value as any[];
-      }
+      const [flowNative, flowVec, flowStake] = await Promise.allSettled([
+        flowProvider.getBalance(currentAccount).catch((e) => {
+          console.log('Flow native balance error:', e);
+          return 0n;
+        }),
+        (async () => {
+          try {
+            const vecContract = new ethers.Contract(flowConfig.VEC_TOKEN_ADDRESS, ERC20_ABI, flowProvider);
+            return await vecContract.balanceOf(currentAccount);
+          } catch (e) {
+            console.log('Flow VEC balance error:', e);
+            return 0n;
+          }
+        })(),
+        (async () => {
+          try {
+            const stakingContract = new ethers.Contract(flowConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, flowProvider);
+            return await stakingContract.getUserStakeInfo(currentAccount);
+          } catch (e) {
+            console.log('Flow stake info error:', e);
+            return [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
+          }
+        })()
+      ]);
 
-      const stakedAmount = BigInt(stakeData[0] || 0);
-      const pendingReward = BigInt(stakeData[1] || 0);
-      const unlockTime = Number(stakeData[3] || 0);
-      const lockupPeriod = Number(stakeData[7] || 0);
-      const projectedAPY = BigInt(stakeData[8] || 0);
-      const isActive = Boolean(stakeData[9] || false);
-      const canWithdraw = Boolean(stakeData[10] || false);
-
-      const now = Math.floor(Date.now() / 1000);
-      const canWithdrawNow = unlockTime > 0 && now >= unlockTime;
-
-      setBalances({
-        native: parseFloat(ethers.formatUnits(nativeBalance, decimals)).toFixed(4),
-        vec: parseFloat(ethers.formatUnits(vecBalance, decimals)).toFixed(2),
-        staked: parseFloat(ethers.formatUnits(stakedAmount, decimals)).toFixed(2),
-        rewards: parseFloat(ethers.formatUnits(pendingReward, decimals)).toFixed(4)
+      // Update BSC balances
+      const bscNativeBal = bscNative.status === 'fulfilled' ? bscNative.value : 0n;
+      const bscVecBal = bscVec.status === 'fulfilled' ? bscVec.value : 0n;
+      const bscStakeData = bscStake.status === 'fulfilled' ? bscStake.value as any[] : [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
+      
+      setBscBalances({
+        native: parseFloat(ethers.formatUnits(bscNativeBal, decimals)).toFixed(4),
+        vec: parseFloat(ethers.formatUnits(bscVecBal, decimals)).toFixed(2),
+        staked: parseFloat(ethers.formatUnits(bscStakeData[0] || 0n, decimals)).toFixed(2),
+        rewards: parseFloat(ethers.formatUnits(bscStakeData[1] || 0n, decimals)).toFixed(4)
       });
 
-      setStakeInfo({
-        stakedAmount: parseFloat(ethers.formatUnits(stakedAmount, decimals)).toFixed(2),
-        pendingReward: parseFloat(ethers.formatUnits(pendingReward, decimals)).toFixed(4),
-        projectedAPY: projectedAPY > 0n ? (Number(projectedAPY) / 100).toFixed(2) + '%' : '0%',
-        isActive: isActive,
-        unlockTime: unlockTime,
-        lockupPeriod: lockupPeriod,
-        canWithdraw: canWithdrawNow || canWithdraw
+      const bscNow = Math.floor(Date.now() / 1000);
+      setBscStakeInfo({
+        stakedAmount: parseFloat(ethers.formatUnits(bscStakeData[0] || 0n, decimals)).toFixed(2),
+        pendingReward: parseFloat(ethers.formatUnits(bscStakeData[1] || 0n, decimals)).toFixed(4),
+        projectedAPY: bscStakeData[8] > 0n ? (Number(bscStakeData[8]) / 100).toFixed(2) + '%' : '0%',
+        isActive: Boolean(bscStakeData[9] || false),
+        unlockTime: Number(bscStakeData[3] || 0),
+        lockupPeriod: Number(bscStakeData[7] || 0),
+        canWithdraw: (Number(bscStakeData[3] || 0) > 0 && bscNow >= Number(bscStakeData[3] || 0)) || Boolean(bscStakeData[10] || false)
       });
 
-      console.log('Updated balances:', {
-        native: parseFloat(ethers.formatUnits(nativeBalance, decimals)).toFixed(4),
-        vec: parseFloat(ethers.formatUnits(vecBalance, decimals)).toFixed(2),
-        staked: parseFloat(ethers.formatUnits(stakedAmount, decimals)).toFixed(2),
-        rewards: parseFloat(ethers.formatUnits(pendingReward, decimals)).toFixed(4)
+      // Update Flow balances
+      const flowNativeBal = flowNative.status === 'fulfilled' ? flowNative.value : 0n;
+      const flowVecBal = flowVec.status === 'fulfilled' ? flowVec.value : 0n;
+      const flowStakeData = flowStake.status === 'fulfilled' ? flowStake.value as any[] : [0n, 0n, 0n, 0n, 0n, 0n, 0n, 0, 0n, false, false];
+      
+      setFlowBalances({
+        native: parseFloat(ethers.formatUnits(flowNativeBal, decimals)).toFixed(4),
+        vec: parseFloat(ethers.formatUnits(flowVecBal, decimals)).toFixed(2),
+        staked: parseFloat(ethers.formatUnits(flowStakeData[0] || 0n, decimals)).toFixed(2),
+        rewards: parseFloat(ethers.formatUnits(flowStakeData[1] || 0n, decimals)).toFixed(4)
+      });
+
+      const flowNow = Math.floor(Date.now() / 1000);
+      setFlowStakeInfo({
+        stakedAmount: parseFloat(ethers.formatUnits(flowStakeData[0] || 0n, decimals)).toFixed(2),
+        pendingReward: parseFloat(ethers.formatUnits(flowStakeData[1] || 0n, decimals)).toFixed(4),
+        projectedAPY: flowStakeData[8] > 0n ? (Number(flowStakeData[8]) / 100).toFixed(2) + '%' : '0%',
+        isActive: Boolean(flowStakeData[9] || false),
+        unlockTime: Number(flowStakeData[3] || 0),
+        lockupPeriod: Number(flowStakeData[7] || 0),
+        canWithdraw: (Number(flowStakeData[3] || 0) > 0 && flowNow >= Number(flowStakeData[3] || 0)) || Boolean(flowStakeData[10] || false)
+      });
+
+      console.log('BSC Balances:', {
+        native: parseFloat(ethers.formatUnits(bscNativeBal, decimals)).toFixed(4),
+        vec: parseFloat(ethers.formatUnits(bscVecBal, decimals)).toFixed(2),
+        staked: parseFloat(ethers.formatUnits(bscStakeData[0] || 0n, decimals)).toFixed(2)
+      });
+
+      console.log('Flow Balances:', {
+        native: parseFloat(ethers.formatUnits(flowNativeBal, decimals)).toFixed(4),
+        vec: parseFloat(ethers.formatUnits(flowVecBal, decimals)).toFixed(2),
+        staked: parseFloat(ethers.formatUnits(flowStakeData[0] || 0n, decimals)).toFixed(2)
       });
 
     } catch (error) {
       console.error("Refresh error:", error);
     }
-  }, [currentChain]);
+  }, []);
 
   // ============================================
   // CONNECT WALLET - COMPLETE FIXED VERSION
@@ -582,7 +654,7 @@ export default function App() {
               localStorage.setItem('velacore_lastConnectedWallet', 'walletconnect');
               setIsWalletModalOpen(false);
               showToast('Connected via WalletConnect', 'success');
-              await refreshData(accounts[0], connector);
+              await refreshAllChainData(accounts[0], connector);
               setLoading(false);
               resolve(true);
             });
@@ -627,7 +699,7 @@ export default function App() {
           localStorage.setItem('velacore_lastConnectedWallet', 'metamask');
           setIsWalletModalOpen(false);
           showToast('Connected to MetaMask', 'success');
-          await refreshData(accounts[0], metamaskExactProvider);
+          await refreshAllChainData(accounts[0], metamaskExactProvider);
           setLoading(false);
           return;
         } catch (mmError: any) {
@@ -663,7 +735,7 @@ export default function App() {
         localStorage.setItem('velacore_lastConnectedWallet', 'trustwallet');
         setIsWalletModalOpen(false);
         showToast('Connected to Trust Wallet', 'success');
-        await refreshData(accounts[0], trustExactProvider);
+        await refreshAllChainData(accounts[0], trustExactProvider);
         setLoading(false);
         return;
       }
@@ -689,7 +761,7 @@ export default function App() {
         localStorage.setItem('velacore_lastConnectedWallet', 'coinbase');
         setIsWalletModalOpen(false);
         showToast('Connected to Coinbase Wallet', 'success');
-        await refreshData(accounts[0], coinbaseExactProvider);
+        await refreshAllChainData(accounts[0], coinbaseExactProvider);
         setLoading(false);
         return;
       }
@@ -704,7 +776,7 @@ export default function App() {
         localStorage.setItem('velacore_lastConnectedWallet', 'binance');
         setIsWalletModalOpen(false);
         showToast('Connected to Binance Wallet', 'success');
-        await refreshData(accounts[0], window.BinanceChain);
+        await refreshAllChainData(accounts[0], window.BinanceChain);
         setLoading(false);
         return;
       }
@@ -734,7 +806,7 @@ export default function App() {
         localStorage.setItem('velacore_lastConnectedWallet', 'phantom');
         setIsWalletModalOpen(false);
         showToast('Connected to Phantom Wallet', 'success');
-        await refreshData(accounts[0], provider);
+        await refreshAllChainData(accounts[0], provider);
         setLoading(false);
         return;
       }
@@ -749,7 +821,7 @@ export default function App() {
       localStorage.setItem('velacore_lastConnectedWallet', walletId);
       setIsWalletModalOpen(false);
       showToast(`Connected to ${wallet.name}`, 'success');
-      await refreshData(accounts[0], provider);
+      await refreshAllChainData(accounts[0], provider);
       
     } catch (error: any) {
       console.error('Connection error:', error);
@@ -770,7 +842,7 @@ export default function App() {
       if (accounts.length === 0) disconnectWallet();
       else if (account !== accounts[0]) {
         setAccount(accounts[0]);
-        refreshData(accounts[0], provider);
+        refreshAllChainData(accounts[0], provider);
         showToast("Account changed", "info");
       }
     };
@@ -791,14 +863,19 @@ export default function App() {
         provider.removeListener('disconnect', handleDisconnect);
       }
     };
-  }, [provider, account, refreshData]);
+  }, [provider, account, refreshAllChainData]);
 
   const disconnectWallet = () => {
     setAccount(null);
     setProvider(null);
     setConnectedWalletId(null);
-    setBalances({ native: '0.0000', vec: '0', staked: '0', rewards: '0.0000' });
-    setStakeInfo({
+    setBscBalances({ native: '0.0000', vec: '0', staked: '0', rewards: '0.0000' });
+    setFlowBalances({ native: '0.0000', vec: '0', staked: '0', rewards: '0.0000' });
+    setBscStakeInfo({
+      stakedAmount: '0', pendingReward: '0.0000', projectedAPY: '0%',
+      isActive: false, unlockTime: 0, lockupPeriod: 0, canWithdraw: false
+    });
+    setFlowStakeInfo({
       stakedAmount: '0', pendingReward: '0.0000', projectedAPY: '0%',
       isActive: false, unlockTime: 0, lockupPeriod: 0, canWithdraw: false
     });
@@ -828,7 +905,6 @@ export default function App() {
         } else throw switchError;
       }
       setCurrentChain(targetChain);
-      if (account) await refreshData(account, provider);
       showToast(`Switched to ${targetChain.name}`, "success");
     } catch (error: any) {
       showToast(`Failed to switch: ${error.message}`, "error");
@@ -840,9 +916,13 @@ export default function App() {
   // ============================================
   const handleStake = async (amount: string, lockPeriod: number) => {
     if (!provider || !account) { showToast("Please connect wallet first", "error"); return; }
-    if (stakeInfo.isActive) { showToast("You already have an active stake", "error"); return; }
+    
+    const currentStakeInfo = getCurrentStakeInfo();
+    const currentBalances = getCurrentBalances();
+    
+    if (currentStakeInfo.isActive) { showToast("You already have an active stake", "error"); return; }
     if (parseFloat(amount) <= 0) { showToast("Please enter a valid amount", "error"); return; }
-    if (parseFloat(amount) > parseFloat(balances.vec)) { showToast("Insufficient balance", "error"); return; }
+    if (parseFloat(amount) > parseFloat(currentBalances.vec)) { showToast("Insufficient balance", "error"); return; }
 
     setLoading(true);
     try {
@@ -873,7 +953,7 @@ export default function App() {
       console.log('Staking successful');
 
       showToast("Staked successfully!", "success");
-      await refreshData(account, provider);
+      await refreshAllChainData(account, provider);
     } catch (error: any) {
       console.error("Stake error:", error);
       showToast(error.message || "Staking failed", "error");
@@ -882,10 +962,13 @@ export default function App() {
 
   const handleUnstake = async () => {
     if (!provider || !account) { showToast("Please connect wallet first", "error"); return; }
-    if (!stakeInfo.isActive) { showToast("No active stake", "error"); return; }
-    if (!stakeInfo.canWithdraw) {
+    
+    const currentStakeInfo = getCurrentStakeInfo();
+    
+    if (!currentStakeInfo.isActive) { showToast("No active stake", "error"); return; }
+    if (!currentStakeInfo.canWithdraw) {
       const now = Math.floor(Date.now() / 1000);
-      const remaining = stakeInfo.unlockTime - now;
+      const remaining = currentStakeInfo.unlockTime - now;
       if (remaining > 0) {
         const days = Math.floor(remaining / 86400);
         const hours = Math.floor((remaining % 86400) / 3600);
@@ -908,7 +991,7 @@ export default function App() {
       await tx.wait();
 
       showToast("Unstaked successfully!", "success");
-      await refreshData(account, provider);
+      await refreshAllChainData(account, provider);
     } catch (error: any) {
       console.error("Unstake error:", error);
       showToast(error.message || "Unstaking failed", "error");
@@ -917,7 +1000,10 @@ export default function App() {
 
   const handleClaim = async () => {
     if (!provider || !account) { showToast("Please connect wallet first", "error"); return; }
-    if (parseFloat(balances.rewards) <= 0) { showToast("No rewards to claim", "error"); return; }
+    
+    const currentBalances = getCurrentBalances();
+    
+    if (parseFloat(currentBalances.rewards) <= 0) { showToast("No rewards to claim", "error"); return; }
 
     setLoading(true);
     try {
@@ -927,14 +1013,14 @@ export default function App() {
 
       console.log(`Claiming rewards on ${currentChain.id}`);
       console.log(`Staking Address: ${currentConfig.STAKING_CONTRACT_ADDRESS}`);
-      console.log(`Rewards amount: ${balances.rewards} VEC`);
+      console.log(`Rewards amount: ${currentBalances.rewards} VEC`);
 
       const stakingContract = new ethers.Contract(currentConfig.STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
       const tx = await stakingContract.claimRewards();
       await tx.wait();
 
       showToast("Rewards claimed successfully!", "success");
-      await refreshData(account, provider);
+      await refreshAllChainData(account, provider);
     } catch (error: any) {
       console.error("Claim error:", error);
       showToast(error.message || "Claim failed", "error");
@@ -963,7 +1049,7 @@ export default function App() {
       await tx.wait();
 
       showToast("Tokens claimed successfully!", "success");
-      await refreshData(account, provider);
+      await refreshAllChainData(account, provider);
     } catch (error: any) {
       console.error("Faucet error:", error);
       showToast(error.message || "Claim failed", "error");
@@ -988,6 +1074,9 @@ export default function App() {
       }
     };
   }, []);
+
+  const currentBalances = getCurrentBalances();
+  const currentStakeInfo = getCurrentStakeInfo();
 
   return (
     <div className="min-h-screen bg-[#0B0E11] text-white font-sans antialiased">
@@ -1039,30 +1128,54 @@ export default function App() {
             {/* Dashboard Section */}
             {activeSection === Section.DASHBOARD && (
               <div className="space-y-6">
-                <HeroSection tvl="$12,500,000" totalStakers="1,234" apy="24.5" />
+                <HeroSection 
+                  chain={currentChain.id as 'bsc' | 'flow'} 
+                  account={account}
+                  onChainChange={(newChain) => {
+                    const chain = SUPPORTED_CHAINS.find(c => c.id === newChain);
+                    if (chain) {
+                      setCurrentChain(chain);
+                    }
+                  }}
+                />
 
-                {/* Balance Cards */}
+                {/* Balance Cards - FIXED: Using chain-specific balances */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {['Native Balance', 'VEC Balance', 'Staked'].map((title, index) => (
-                    <div key={index} className="glass-card p-6 hover:scale-[1.02] transition-transform">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="text-sm text-gray-400 uppercase tracking-wide">{title}</div>
-                        <i className={`fas ${
-                          index === 0 ? 'fa-wallet text-cyan-400/50' : 
-                          index === 1 ? 'fa-coins text-cyan-400/50' : 
-                          'fa-lock text-blue-400/50'
-                        }`}></i>
-                      </div>
-                      <div className={`text-3xl font-bold ${
-                        index === 1 ? 'text-cyan-400' : 
-                        index === 2 ? 'text-blue-400' : 'text-white'
-                      }`}>
-                        {index === 0 ? `${balances.native} ${currentChain.nativeCurrency.symbol}` : 
-                         index === 1 ? `${balances.vec} VEC` : 
-                         `${balances.staked} VEC`}
-                      </div>
+                  {/* Native Balance Card */}
+                  <div className="glass-card p-6 hover:scale-[1.02] transition-transform">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm text-gray-400 uppercase tracking-wide">NATIVE BALANCE</div>
+                      <i className="fas fa-wallet text-cyan-400/50"></i>
                     </div>
-                  ))}
+                    <div className="text-3xl font-bold text-white">
+                      {currentBalances.native} {currentChain.nativeCurrency.symbol}
+                    </div>
+                  </div>
+
+                  {/* VEC Balance Card */}
+                  <div className="glass-card p-6 hover:scale-[1.02] transition-transform">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm text-gray-400 uppercase tracking-wide">VEC BALANCE</div>
+                      <i className="fas fa-coins text-cyan-400/50"></i>
+                    </div>
+                    <div className="text-3xl font-bold text-cyan-400">
+                      {currentBalances.vec} VEC
+                    </div>
+                    <div className="text-xs text-cyan-400/70 mt-1">
+                      on {currentChain.name}
+                    </div>
+                  </div>
+
+                  {/* Staked Balance Card */}
+                  <div className="glass-card p-6 hover:scale-[1.02] transition-transform">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm text-gray-400 uppercase tracking-wide">STAKE</div>
+                      <i className="fas fa-lock text-blue-400/50"></i>
+                    </div>
+                    <div className="text-3xl font-bold text-blue-400">
+                      {currentBalances.staked} VEC
+                    </div>
+                  </div>
                 </div>
 
                 {/* Additional Cards */}
@@ -1091,11 +1204,11 @@ export default function App() {
                       <i className="fas fa-bolt text-yellow-400"></i>
                       Pending Rewards
                     </h3>
-                    <div className="text-4xl font-bold text-yellow-400 mb-2">{balances.rewards} VEC</div>
+                    <div className="text-4xl font-bold text-yellow-400 mb-2">{currentBalances.rewards} VEC</div>
                     <p className="text-sm text-gray-400 mb-4">Available to claim</p>
                     <button
                       onClick={handleClaim}
-                      disabled={!account || loading || parseFloat(balances.rewards) <= 0}
+                      disabled={!account || loading || parseFloat(currentBalances.rewards) <= 0}
                       className="w-full px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl hover:shadow-lg hover:shadow-yellow-500/30 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? 'Processing...' : 'Claim Rewards'}
@@ -1110,9 +1223,9 @@ export default function App() {
               <div className="max-w-5xl mx-auto">
                 <StakingCard
                   account={account}
-                  balances={balances}
+                  balances={currentBalances}
                   currentChain={currentChain}
-                  stakeInfo={stakeInfo}
+                  stakeInfo={currentStakeInfo}
                   onStake={handleStake}
                   onUnstake={handleUnstake}
                   onClaim={handleClaim}
