@@ -28,6 +28,6 @@
   },
   "scripts": {
     "start": "npx serve .",
-    "build": "tsc"
+    "build": "tsc && vite build"
   }
 }
